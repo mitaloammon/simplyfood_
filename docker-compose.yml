@@ -1,0 +1,118 @@
+name: simplyfood
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/Dockerfile
+    image: simplyfood/app:latest
+    container_name: simplyfood-app
+    working_dir: /var/www/backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      DB_CONNECTION: ${DB_CONNECTION:-mysql}
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${DB_DATABASE:-simplyfood}
+      DB_USERNAME: ${DB_USERNAME:-simplyfood}
+      DB_PASSWORD: ${DB_PASSWORD:-simplyfood}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    volumes:
+      - ./backend:/var/www/backend
+      - ./backend/vendor:/var/www/backend/vendor
+    networks:
+      - simplyfood-network
+
+  web:
+    image: nginx:1.27-alpine
+    container_name: simplyfood-web
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+      node:
+        condition: service_completed_successfully
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - ./backend:/var/www/backend
+      - ./frontend:/var/www/frontend
+      - ./infrastructure/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist:/var/www/frontend/dist
+    networks:
+      - simplyfood-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  mysql:
+    image: mysql:8.4
+    container_name: simplyfood-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE:-simplyfood}
+      MYSQL_USER: ${DB_USERNAME:-simplyfood}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-simplyfood}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - simplyfood-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: simplyfood-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - simplyfood-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  node:
+    image: node:22-alpine
+    container_name: simplyfood-node
+    working_dir: /var/www/frontend
+    volumes:
+      - ./frontend:/var/www/frontend
+      - ./frontend/dist:/var/www/frontend/dist
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
+    command: sh -c "npm install --legacy-peer-deps && npm run build"
+    networks:
+      - simplyfood-network
+
+volumes:
+  mysql-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  simplyfood-network:
+    driver: bridge
