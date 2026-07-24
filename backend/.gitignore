@@ -1,21 +1,52 @@
-/.phpunit.cache
-/node_modules
-/public/build
-/public/hot
+# Dependencies and build artifacts
+/node_modules/
+/vendor/
+/public/build/
+/public/hot/
 /public/storage
+/public/storage/
+/bootstrap/cache/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/testing/
+/storage/framework/views/
+/storage/logs/
+!storage/logs/.gitkeep
 /storage/*.key
-/storage/pail
-/vendor
+/storage/pail/
+
+# Environment and secrets
 .env
-.phpactor.json
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.crt
+*.csr
+/auth.json
+
+# Local databases and runtime files
+*.sqlite
+*.sqlite3
+/database/*.sqlite
+/database/*.sqlite3
+
+# Tests and tooling
+.phpunit.cache
 .phpunit.result.cache
+.phpactor.json
 Homestead.json
 Homestead.yaml
-npm-debug.log
-yarn-error.log
-/auth.json
-/.fleet
-/.idea
-/.nova
-/.vscode
-/.zed
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+/coverage/
+
+# IDE and editor settings
+/.fleet/
+/.idea/
+/.nova/
+/.vscode/
+/.zed/
+.DS_Store
