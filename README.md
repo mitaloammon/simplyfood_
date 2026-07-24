@@ -43,7 +43,7 @@ O fluxo mais simples e alinhado com a estrutura atual do projeto é usar Docker 
 ### 1) Clone o repositório
 
 ```bash
-git clone <url-do-repositorio>
+git clone https://github.com/mitaloammon/simplyfood_
 cd simplyfood
 ```
 
