@@ -5,10 +5,10 @@ import { useAuthStore } from '@/shared/stores/auth';
 const authStore = useAuthStore();
 
 const metrics = ref([
-  { title: 'Clientes Cadastrados', value: '1.248', change: '+12% este mês', icon: '👥', color: '#3182ce' },
-  { title: 'Pedidos Hoje', value: '42', change: '+8% em relação a ontem', icon: '📦', color: '#38a169' },
-  { title: 'Faturamento Diário', value: 'R$ 2.450,00', change: '+15% em relação a ontem', icon: '💰', color: '#dd6b20' },
-  { title: 'Tempo Médio Entrega', value: '28 min', change: '-3 min em relação a ontem', icon: '⚡', color: '#e53e3e' }
+  { title: 'Clientes Cadastrados', value: '1.248', change: '+12% este mês', icon: '✎', color: '#3182ce' },
+  { title: 'Pedidos Hoje', value: '42', change: '+8% em relação a ontem', icon: '☑︎', color: '#38a169' },
+  { title: 'Faturamento Diário', value: 'R$ 2.450,00', change: '+15% em relação a ontem', icon: '$', color: '#dd6b20' },
+  { title: 'Tempo Médio Entrega', value: '28 min', change: '-3 min em relação a ontem', icon: '⏱︎', color: '#e53e3e' }
 ]);
 </script>
 
@@ -36,7 +36,7 @@ const metrics = ref([
       <h2 class="section-title">Ações Rápidas</h2>
       <div class="actions-grid">
         <router-link to="/customers" class="action-card">
-          <div class="action-icon">➕</div>
+          <div class="action-icon">↘︎</div>
           <div class="action-details">
             <h3>Cadastrar Novo Cliente</h3>
             <p>Adicione um novo cliente e suas informações de entrega.</p>

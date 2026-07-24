@@ -65,7 +65,7 @@ const handleLogin = async () => {
   <div class="login-card">
     <div class="login-header">
       <h1 class="brand-title">Simply<span>Food</span></h1>
-      <p class="brand-subtitle">Gestão Inteligente de Food Delivery</p>
+      <p class="brand-subtitle">Gestão Inteligente de Food Service</p>
     </div>
 
     <div v-if="error" class="alert alert-error">
