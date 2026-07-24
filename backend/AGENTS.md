@@ -312,7 +312,126 @@ services:
 
 ---
 
-## 8. Camada TDD (Test-Driven Development)
+## 8. Rotas da API, Middlewares e Autenticação
+
+### 8.1. Padrão de entrada da API
+O ponto de entrada principal do backend é o arquivo de rotas da API, onde a aplicação organiza endpoints públicos e protegidos de forma explícita. A estrutura segue um padrão simples e previsível:
+
+- Rotas públicas: saúde da aplicação, login e cadastro
+- Rotas protegidas: clientes, produtos e pedidos
+- Middleware de token: valida presença/consistência do token
+- Middleware de autorização: restringe acesso por papel/role
+
+```php
+// backend/routes/api.php
+
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProductController;
+use Illuminate\Support\Facades\Route;
+
+// 1) Rota pública de health check
+Route::get('/health', function () {
+    return response()->json(['status' => 'ok']);
+});
+
+// 2) Grupo público de autenticação
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register']);
+});
+
+// 3) Grupo protegido com múltiplos middlewares
+Route::middleware(['token.valid', 'auth.system:ADMIN,MANAGER,OPERATOR'])->group(function () {
+    Route::prefix('customers')->group(function () {
+        Route::get('/', [CustomerController::class, 'get']);
+        Route::get('/{id}', [CustomerController::class, 'show']);
+        Route::put('/{id}', [CustomerController::class, 'update']);
+        Route::delete('/{id}', [CustomerController::class, 'deleted']);
+    });
+
+    Route::prefix('products')->group(function () {
+        Route::get('/', [ProductController::class, 'get']);
+        Route::get('/active', [ProductController::class, 'getActive']);
+        Route::post('/', [ProductController::class, 'post']);
+    });
+
+    Route::prefix('orders')->group(function () {
+        Route::get('/', [OrderController::class, 'get']);
+        Route::get('/{id}', [OrderController::class, 'show']);
+        Route::post('/', [OrderController::class, 'post']);
+        Route::patch('/{id}/status', [OrderController::class, 'changeStatus']);
+    });
+});
+```
+
+### 8.2. Middlewares aplicados e responsabilidade de cada um
+
+- `token.valid`
+  - Responsável por validar o token informado via Bearer Token ou por autenticação baseada em Sanctum.
+  - Se o token não existir, estiver ausente ou for inválido, a resposta padrão é `401 Unauthorized`.
+  - O fluxo é implementado em `app/Http/Middleware/UserTokenValid.php`.
+
+- `auth.system:ADMIN,MANAGER,OPERATOR`
+  - Responsável por restringir o acesso às rotas protegidas conforme o papel do usuário.
+  - Quando o usuário não possui permissão para o papel exigido, o comportamento esperado é `403 Forbidden`.
+  - Esse middleware atua como camada de autorização após a validação do token.
+
+### 8.3. Prefixos utilizados por grupo
+
+- Grupo público de autenticação: prefixo `auth`
+  - `/api/auth/login`
+  - `/api/auth/register`
+
+- Grupo protegido de clientes: prefixo `customers`
+  - `/api/customers`
+  - `/api/customers/{id}`
+
+- Grupo protegido de produtos: prefixo `products`
+  - `/api/products`
+  - `/api/products/active`
+
+- Grupo protegido de pedidos: prefixo `orders`
+  - `/api/orders`
+  - `/api/orders/{id}`
+
+- Rota pública de saúde: `/api/health`
+
+### 8.4. Códigos de erro possíveis nas autenticações e retornos
+
+- `401 Unauthorized`
+  - Utilizado quando o token não é enviado, é inválido ou não passa pela validação de `token.valid`.
+  - Exemplo de retorno:
+    ```json
+    {
+      "message": "Unauthorized: Token is missing or invalid.",
+      "status": "error"
+    }
+    ```
+
+- `401 Unauthorized` nas rotas de autenticação
+  - O controller de login retorna `401` quando as credenciais são inválidas ou a autenticação falha.
+
+- `400 Bad Request`
+  - Utilizado no endpoint de registro quando os dados enviados não passam na validação ou no fluxo de criação.
+
+- `403 Forbidden`
+  - Esperado quando o usuário está autenticado, mas não possui um dos papéis permitidos (`ADMIN`, `MANAGER` ou `OPERATOR`) para acessar uma rota protegida.
+
+- `422 Unprocessable Entity`
+  - Utilizado em operações específicas, como alteração de status de pedido, quando o payload recebido é semanticamente inválido.
+
+### 8.5. Regras de negócio para as rotas protegidas
+
+- As rotas protegidas devem sempre ser tratadas como operações sensíveis e exigirem autenticação explícita.
+- A validação de token ocorre antes de qualquer execução de controller.
+- A autorização por role ocorre depois da validação de identidade.
+- Controllers continuam finos; a lógica de negócio deve permanecer em Services/UseCases.
+
+---
+
+## 9. Camada TDD (Test-Driven Development)
 
 ### Princípios do TDD no SimplifyFood
 
@@ -322,7 +441,7 @@ services:
 4. Cobertura mínima de 80% em Application e Domain
 5. Todo novo código deve ser precedido por testes
 
-## 9. Variáveis Recomendadas no .env (Exemplo) 
+## 10. Variáveis Recomendadas no .env (Exemplo) 
 
 # ==================== APP CONFIG ====================
 APP_NAME=SimplifyFood
@@ -555,7 +674,7 @@ Para garantir a segregação e robustez entre os ambientes no nível do framewor
   - A opção `debug` é forçada a `false` em ambiente de produção (`APP_ENV === 'production'`), independente do que estiver definido em `APP_DEBUG`, evitando exibição indesejada de dados sensíveis.
 
 - **Banco de Dados em [config/database.php](file:///c:/Users/MITALO/Desktop/simplyfood/backend/config/database.php)**:
-  - A conexão `pgsql` detecta se o ambiente atual é `testing`. Caso afirmativo, ela substitui dinamicamente o banco, o usuário e a senha pelas variáveis `TEST_DB_DATABASE`, `TEST_DB_USERNAME` e `TEST_DB_PASSWORD`.
+  - A conexão `mysql` detecta se o ambiente atual é `testing`. Caso afirmativo, ela substitui dinamicamente o banco, o usuário e a senha pelas variáveis `TEST_DB_DATABASE`, `TEST_DB_USERNAME` e `TEST_DB_PASSWORD`.
 
 - **Mapeamento de Testes em [phpunit.xml](file:///c:/Users/MITALO/Desktop/simplyfood/backend/phpunit.xml)**:
   - A suíte de testes padrão usa SQLite em memória (`:memory:`) por questões de performance.

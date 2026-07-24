@@ -22,12 +22,12 @@ const handleLogout = () => {
 
       <nav class="nav-menu">
         <router-link to="/dashboard" class="nav-item" active-class="active">
-          <span class="nav-icon">📊</span>
+          <span class="nav-icon">√</span>
           <span class="nav-label">Dashboard</span>
         </router-link>
 
         <router-link to="/customers" class="nav-item" active-class="active">
-          <span class="nav-icon">👥</span>
+          <span class="nav-icon">✎</span>
           <span class="nav-label">Clientes</span>
         </router-link>
       </nav>
@@ -38,7 +38,7 @@ const handleLogout = () => {
           <p class="user-role">{{ authStore.user?.role || 'OPERATOR' }}</p>
         </div>
         <button class="btn-logout" @click="handleLogout">
-          <span class="logout-icon">🚪</span>
+          <span class="logout-icon">X</span>
           Sair
         </button>
       </div>
