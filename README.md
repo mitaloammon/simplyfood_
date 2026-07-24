@@ -5,94 +5,169 @@ Sistema web corporativo para gerenciamento operacional, financeiro e logístico 
 ---
 
 > [!IMPORTANT]
-> **Atenção Agentes de IA e Desenvolvedores:**
-> Este projeto possui um guia de regras de contexto e fonte única de verdade definido em [AGENTS.md](file:///C:/Users/MITALO/.gemini/antigravity-ide/scratch/simplify-food/AGENTS.md). Favor ler e seguir rigorosamente as regras definidas nele antes de qualquer alteração ou implementação.
+> **Atenção agentes de IA e desenvolvedores:**
+> As regras principais de arquitetura, camada de aplicação, estrutura de pastas e convenções do projeto estão consolidadas em [backend/AGENTS.md](backend/AGENTS.md) e [frontend/AGENTS.md](frontend/AGENTS.md). Consulte esses arquivos antes de alterar qualquer parte do sistema.
 
 ---
 
 ## Visão Geral
 
-O Simplify Food centraliza em tempo real:
-- Gestão de clientes e endereços
-- Gestão de pedidos e fluxo de produção
-- Gestão de cardápio (Categorias, Produtos e Menus)
-- Gestão financeira, faturamento e fluxo de caixa
-- Integração WhatsApp Business API
-- Geolocalização e logística de entregas
+O Simplify Food centraliza, em tempo real, as operações de:
+- gestão de clientes e endereços
+- gestão de pedidos e fluxo operacional
+- catálogo de produtos e categorias
+- financeiro, faturamento e fluxo de caixa
+- integração com WhatsApp Business
+- logística e entregas
+
+A aplicação é composta por:
+- [backend](backend): API em Laravel 12 com arquitetura limpa
+- [frontend](frontend): interface em Vue 3 + TypeScript
+- [infrastructure](infrastructure): configuração Docker e Nginx
 
 ---
 
-## Arquitetura & Diretórios
+## Requisitos
 
-Este projeto segue os princípios de **Clean Architecture**, **SOLID**, **Domain Driven Design (DDD)**, e **TDD**.
-
-- **`/backend`**: Laravel 12 (PHP 8.3) estruturado em camadas de `Domains`, `Application` e `Infrastructure`.
-- **`/frontend`**: Vue 3 (TypeScript) estruturado em módulos auto-contidos no diretório `src/modules`.
-- **`/infrastructure`**: Arquivos de docker, nginx e scripts auxiliares.
-- **`/docs`**: Regras de negócio, Swagger/OpenAPI e diagramas da aplicação.
-
----
-
-## Configuração Local
-
-### Requisitos
-- Docker & Docker Compose
-- PHP 8.3+ (opcional para execução local fora do container)
+Antes de iniciar, certifique-se de ter instalado:
+- Docker Desktop ou Docker Engine + Docker Compose v2
 - Node.js 20+
+- PHP 8.2+ e Composer (apenas se for executar o backend fora do container)
 
-### Passo a Passo
+---
 
-1. **Clonar o Repositório**
-2. **Subir os Containers Docker**
-   ```bash
-   docker compose up -d
-   ```
-3. **Configuração do Backend**
-   ```bash
-   cd backend
-   cp .env.example .env
-   composer install
-   php artisan key:generate
-   php artisan migrate --seed
-   ```
-4. **Configuração do Frontend**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
+## Execução local recomendada com Docker
 
-### Fluxo Diário com Docker
+O fluxo mais simples e alinhado com a estrutura atual do projeto é usar Docker Compose.
+
+### 1) Clone o repositório
 
 ```bash
-# subir a stack
-docker compose up -d
-
-# parar a stack
-docker compose down
-
-# reiniciar após alterações de configuração
-docker compose down --remove-orphans
-docker compose up -d
+git clone <url-do-repositorio>
+cd simplyfood
 ```
 
-> A aplicação fica disponível em http://localhost:8080.
+### 2) Configure o ambiente do backend
+
+```bash
+cp backend/.env.example backend/.env
+```
+
+No Windows PowerShell:
+
+```powershell
+Copy-Item backend/.env.example backend/.env
+```
+
+> O arquivo de ambiente já é consumido pela stack Docker definida em [docker-compose.yml](docker-compose.yml).
+
+### 3) Suba a stack local
+
+```bash
+docker compose up --build -d
+```
+
+### 4) Instale dependências do backend e prepare o banco
+
+```bash
+docker compose run --rm app composer install
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
+```
+
+### 5) Acesse a aplicação
+
+- Frontend e API: http://localhost:8080
+- Health check da API: http://localhost:8080/api/health
+
+---
+
+## Comandos úteis do dia a dia
+
+### Subir e parar a stack
+
+```bash
+# subir
+docker compose up -d
+
+# parar
+docker compose down
+
+# reiniciar
+docker compose restart
+```
+
+### Verificar status dos containers
+
+```bash
+docker compose ps
+```
+
+### Visualizar logs
+
+```bash
+# logs gerais
+docker compose logs -f
+
+# logs do backend
+docker compose logs -f app
+```
+
+### Executar comandos Artisan
+
+```bash
+docker compose exec app php artisan cache:clear
+docker compose exec app php artisan migrate
+docker compose exec app php artisan db:seed
+docker compose exec app php artisan test
+```
+
+### Executar comandos Composer
+
+```bash
+docker compose run --rm app composer install
+docker compose run --rm app composer dump-autoload
+```
+
+---
+
+## Execução local do frontend sem Docker
+
+Se você quiser trabalhar no frontend diretamente localmente, use:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+A aplicação ficará disponível em:
+- http://localhost:5173
+
+> Para isso, o backend precisa continuar rodando via Docker em http://localhost:8080.
 
 ---
 
 ## Testes
 
-A cobertura de testes mínima exigida para qualquer nova funcionalidade é de **80%**.
+### Backend
 
-### Rodando Testes do Backend
 ```bash
 cd backend
 vendor/bin/pest
 ```
 
-### Rodando Testes do Frontend
+### Frontend
+
 ```bash
 cd frontend
-npm run test:unit
-npm run test:e2e
+npm run test
 ```
+
+---
+
+## Observações
+
+- Esta README centraliza os passos de execução local e uso diário do projeto.
+- Informações específicas de infraestrutura mais detalhadas foram consolidadas em [DOCKER.md](DOCKER.md) e [HOW_TO_USE.md](HOW_TO_USE.md), mas o fluxo principal de execução deve seguir este documento.
+- Novas features devem respeitar as diretrizes definidas em [backend/AGENTS.md](backend/AGENTS.md) e [frontend/AGENTS.md](frontend/AGENTS.md).
