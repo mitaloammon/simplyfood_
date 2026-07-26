@@ -1,289 +1,336 @@
-# FLUXOGRAMA ESTRUTURA COMPLETA - SIMPLIFYFOOD FRONTEND (Vue 3 + TypeScript + Clean Frontend Architecture)
-*Projeto Vue 3 + TypeScript + Vite + Clean Architecture + DDD + TDD*
-*Alinhado ao Backend Laravel (Clean Architecture + Spec-Driven Development)*
+# SimplyFood Frontend - Technical Guide
 
-## 1. Arquitetura Geral
+<!--
+Este documento consolida a visão técnica do frontend do projeto Simplify Food.
+Ele serve como referência para arquitetura, módulos, fluxos, integração com a API,
+autenticação e manutenção da interface.
+-->
+
+## 1. Project Overview
+
+### Objetivo
+O frontend do SimplyFood é responsável por oferecer a experiência visual e interativa para os usuários do sistema, consumindo a API do backend e organizando o fluxo de navegação por módulos.
+
+### Escopo
+- autenticação de usuários
+- cadastro e gestão de clientes
+- gestão de produtos e pedidos
+- painéis e telas operacionais
+- integração com a API Laravel
+
+### Arquitetura geral
+O frontend utiliza uma estrutura modular com Vue 3, TypeScript e Pinia para organização de estado.
 
 ```mermaid
-graph TD
-    A[Pages + Components (Presentation)] --> B[Composables + Pinia Stores (Application)]
-    B --> C[Domain Entities + Value Objects]
-    C --> D[Services / UseCases]
-    D --> E[Shared API Client (Axios + Interceptors)]
-    E --> F[Laravel Backend API]
-    F --> G[Resources + DTOs]
-    G --> E
-    E --> D
-    D --> C
-    D --> H[TanStack Query Cache]
-    B --> I[Layouts + Design System]
-    A --> I
+flowchart TD
+    A[Pages] --> B[Components]
+    B --> C[Stores / Composables]
+    C --> D[Services]
+    D --> E[API Client]
+    E --> F[Backend API]
+```
+
+### Responsabilidades do Frontend
+- renderizar telas e componentes
+- encapsular regras de apresentação
+- consumir endpoints da API
+- tratar estados de loading, erro e sucesso
+- preservar experiência de usuário em fluxos críticos
+
+### Convenções adotadas
+- módulos por feature
+- componentes reutilizáveis em shared
+- stores para estado global
+- services para integração HTTP
+- testes com Vitest
 
 ---
 
-## 2. Estrutura Completa de Diretórios e Responsabilidades
+## 2. Sprints
 
+### Sprint 01 - Base da interface
+- ID: F01
+- Nome: UI Foundation
+- Objetivo: estruturar o frontend e disponibilizar telas base
+- Status: Em andamento
+- Responsável: Frontend Team
+- Dependências: backend inicial
+- Checklist:
+  - [x] estrutura base do Vue 3
+  - [x] configuração de rotas
+  - [x] layout base
+  - [ ] integração completa com autenticação
+- Prioridade: Alta
+- Entregues: layout inicial, rotas, componentes compartilhados
+- Pendentes: fluxos completos de autenticação e módulos de negócio
+- Riscos: divergência entre contratos da API e UI
+- Bloqueios: dependência de endpoints estáveis
+
+### Sprint 02 - Módulos operacionais
+- ID: F02
+- Nome: Business Modules
+- Objetivo: entregar fluxos de clientes, produtos e pedidos na interface
+- Status: Planejado
+- Responsável: Frontend Team
+- Dependências: F01
+- Checklist:
+  - [ ] módulo de clientes
+  - [ ] módulo de produtos
+  - [ ] módulo de pedidos
+  - [ ] dashboard principal
+- Prioridade: Alta
+
+---
+
+## 3. Features
+
+<!--
+As features abaixo representam os principais fluxos da interface.
+Qualquer alteração deve preservar a experiência do usuário e o contrato com a API.
+-->
+
+### Feature 1 - Autenticação
+- Nome: Authentication Flow
+- Descrição: tela de login e fluxo de acesso ao sistema
+- Objetivo: autenticar usuários e redirecionar para o painel
+- Fluxo: login -> validação -> token -> dashboard
+- Dependências: backend auth
+- Arquivos envolvidos: src/modules/auth
+- Componentes: LoginForm, AuthLayout
+- Stores: auth store
+- Services: AuthService
+- Status: Parcialmente implementado
+
+### Feature 2 - Cadastro de Clientes
+- Nome: Customer Registration
+- Descrição: formulário de cadastro de cliente
+- Objetivo: capturar informações do cliente e enviar à API
+- Fluxo: formulário -> validação -> API -> feedback
+- Dependências: backend customers
+- Arquivos envolvidos: src/modules/customers
+- Componentes: CustomerForm
+- Stores: customer store
+- Services: CustomerApi
+- Status: Parcialmente implementado
+
+### Feature 3 - Dashboard
+- Nome: Dashboard
+- Descrição: painel principal com visão geral do sistema
+- Objetivo: concentrar indicadores e ações rápidas
+- Dependências: dados da API
+- Arquivos envolvidos: src/modules/dashboard
+- Componentes: DashboardPage
+- Status: Parcialmente implementado
+
+---
+
+## 4. Acceptance Criteria
+
+### Autenticação
+- Given um usuário cadastrado
+- When preencher senha válida
+- Then deve ser autenticado e redirecionado
+
+- Given usuário inválido
+- When tentar entrar
+- Then deve receber mensagem de erro
+
+### Cadastro de Clientes
+- Checklist funcional:
+  - [ ] formulário valida campos obrigatórios
+  - [ ] exibe erro para dados inválidos
+  - [ ] envia dados à API corretamente
+  - [ ] mostra feedback de sucesso ou falha
+
+---
+
+## 5. API Specification
+
+### Integrações principais
+| Endpoint | Method | Cliente | Status |
+| --- | --- | --- | --- |
+| /api/auth/login | POST | AuthService | Ativo |
+| /api/auth/register | POST | AuthService | Ativo |
+| /api/customers | GET/POST | CustomerApi | Parcial |
+| /api/products | GET/POST | ProductApi | Parcial |
+| /api/orders | GET/POST | OrderApi | Parcial |
+
+### Exemplo de payload
+```json
+{
+  "email": "admin@email.com",
+  "password": "********"
+}
+```
+
+### Exemplo de resposta
+```json
+{
+  "status": "success",
+  "data": {
+    "token": "...",
+    "user": {
+      "id": 1,
+      "name": "Administrador"
+    }
+  }
+}
+```
+
+---
+
+## 6. Data Models
+
+### Modelo de domínio principal
+- CustomerEntity
+- AddressValueObject
+- AuthUser
+
+### Estrutura conceitual
+```mermaid
+erDiagram
+    CUSTOMER_ENTITY ||--o{ ADDRESS_VALUE_OBJECT : possui
+    CUSTOMER_ENTITY {
+        string id
+        string name
+        string email
+        string whatsapp
+    }
+```
+
+---
+
+## 7. Stack
+
+### Frontend
+- Vue 3
+- TypeScript
+- Vite
+- Pinia
+- Vue Router
+- Tailwind
+- Axios
+- Vitest
+
+### Infraestrutura
+- Docker Compose
+- Nginx
+- Git
+- GitHub
+
+---
+
+## 8. Coder Agent
+
+### Frontend Agent
+- Agent ID: FRONTEND-AGENT
+- Nome: Frontend Engineer
+- Responsabilidade: manter a interface, componentes, stores e integração com API
+- Escopo: src/app, src/modules, src/shared, src/types
+- Permissões: leitura e escrita em componentes e páginas
+- Arquivos protegidos: rotas, layouts e integrações críticas
+- Prioridade: Alta
+
+### Documentation Agent
+- Agent ID: DOC-AGENT
+- Nome: Documentation Maintainer
+- Responsabilidade: manter esta documentação atualizada
+- Escopo: AGENTS.md, README.md
+- Permissões: editar documentação
+- Arquivos protegidos: estrutura e regras de arquitetura
+- Prioridade: Média
+
+---
+
+## 9. File Structure
+
+```text
 frontend/
-├── src/
-│   ├── app/                          # Configuração global da aplicação
-│   │   ├── router/                   # Vue Router + guards
-│   │   ├── layouts/                  # AuthLayout, DashboardLayout, etc.
-│   │   ├── plugins/                  # Pinia, Axios, etc.
-│   │   └── bootstrap.ts
-│   │
-│   ├── modules/                      # Feature Modules (Bounded Contexts)
-│   │   ├── auth/
-│   │   ├── customers/
-│   │   ├── orders/
-│   │   ├── products/
-│   │   ├── payments/
-│   │   ├── dashboard/
-│   │   └── ... 
-│   │
-│   ├── shared/                       # Camada compartilhada (reutilizável)
-│   │   ├── api/                      # Axios client + interceptors
-│   │   ├── components/               # Design System (BaseButton, BaseTable, etc.)
-│   │   ├── composables/              # useAuth, usePermission, useTable, etc.
-│   │   ├── domain/                   # Entities, Value Objects, Mappers
-│   │   ├── stores/                   # Pinia Stores globais
-│   │   ├── utils/
-│   │   ├── types/
-│   │   └── design-system/            # Tokens, themes, constants
-│   │
-│   ├── assets/
-│   ├── types/                        # Tipos globais
-│   └── tests/                        # Testes (Vitest + Cypress)
-│
-├── public/
-├── vite.config.ts
-├── tailwind.config.ts
-├── cypress/
-└── AGENTS.md                         # Este documento
-
-## 3. Domain Layer (Entities)
-
-export class CustomerEntity {
-    constructor(
-        public id: string,
-        public name: string,
-        public email: string,
-        public whatsapp: string,
-        public cpfCnpj: string,
-        public address?: AddressValueObject
-    ) {}
-
-    isValidWhatsapp(): boolean {
-        return /^55\d{10,11}$/.test(this.whatsapp);
-    }
-
-    getFullName(): string {
-        return this.name;
-    }
-}
-
-## 4. API Services (Infrastructure)
-
-import { apiClient } from '@/shared/api/client';
-
-export class CustomerApi {
-    async create(data: CreateCustomerDto) {
-        return apiClient.post('/customers', data);
-    }
-
-    async findByWhatsapp(whatsapp: string) {
-        return apiClient.get(`/customers/by-whatsapp/${whatsapp}`);
-    }
-}
-
-## 5. Application Layer (Services & Stores)
-
-import { CustomerApi } from '@/modules/customers/api/CustomerApi';
-import { CustomerEntity } from '@/shared/domain/entities/CustomerEntity';
-import { CustomerMapper } from '@/shared/domain/mappers/CustomerMapper';
-
-export class CreateCustomerService {
-    constructor(private api: CustomerApi) {}
-
-    async execute(dto: CreateCustomerDto): Promise<CustomerEntity> {
-        // Regras de negócio
-        const existing = await this.api.findByWhatsapp(dto.whatsapp);
-        if (existing) {
-            throw new Error('Customer already exists with this whatsapp.');
-        }
-
-        const response = await this.api.create(dto);
-        return CustomerMapper.fromApi(response.data);
-    }
-}
-
-## 6. Presentation Layer (Pages & Components)
-
-CustomerForm.vue (Exemplo de componente)
-
-<script setup lang="ts">
-const props = defineProps<{
-    modelValue: CustomerFormData;
-}>();
-const emit = defineEmits(['submit']);
-
-const onSubmit = () => {
-    emit('submit', props.modelValue);
-};
-</script>
-
-<template>
-    <BaseForm @submit="onSubmit">
-        <!-- campos com VeeValidate + Zod -->
-    </BaseForm>
-</template>
-
-CustomerPage.vue (Exemplo de página)
-
-<script setup lang="ts">
-const { createCustomer } = useCustomer();
-</script>
-
-## 7. Shared API Client
-
-shared/api/client.ts
-
-import axios from 'axios';
-import { useAuthStore } from '@/shared/stores/auth';
-
-export const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
-    withCredentials: true,
-});
-
-// Interceptors (Auth, Refresh Token, Error Handling)
-apiClient.interceptors.request.use(config => {
-    const token = useAuthStore().token;
-    if (token) config.headers.Authorization = `Bearer ${token}`;
-    return config;
-});
-
-## 8. Camada TDD (Test-Driven Development)
-
-Princípios do TDD no Frontend
-
-Red → Green → Refactor
-Testes como Especificação Executável
-Isolamento com mocks (vi.mock, MSW)
-Cobertura mínima de 85% em Domain e Application
-Todo novo código deve ser precedido por testes
-
-Estrutura Recomendada de Testes
-
-src/tests/
-├── unit/
-│   ├── domain/
-│   ├── services/
-│   └── components/
-├── integration/
-├── e2e/ (Cypress)
-└── fixtures/
-
-Exemplo: CustomerServiceTest.ts
-
-import { describe, it, expect, vi } from 'vitest';
-import { CreateCustomerService } from '@/modules/customers/services/CreateCustomerService';
-
-vi.mock('@/modules/customers/api/CustomerApi');
-
-describe('CreateCustomerService', () => {
-    it('creates a new customer', async () => {
-        // Arrange, Act, Assert
-    });
-
-    it('throws error if customer already exists by whatsapp', async () => {
-        // ...
-    });
-});
-
-## 9. Variáveis Recomendadas no .env
-
-```bash
-VITE_API_URL=http://localhost:8000/api
-VITE_APP_NAME="SimplyFood"
-VITE_MARKETPLACE_URL="https://marketplace.simplyfood.com.br"
-VITE_WHATSAPP_API_URL="https://api.twilio.com"
+  src/
+    app/
+    modules/
+    shared/
+    assets/
+    types/
+    tests/
+  public/
 ```
 
-## 10. Comandos Úteis
-
-```bash
-# Desenvolvimento
-npm run dev
-
-# Build
-npm run build
-
-# Testes
-npm run test           # Vitest
-npm run test:coverage
-npm run cypress:open   # Cypress
-
-# Lint
-npm run lint
-npm run format
-```
-
-Recomendações de Pacotes:
-
-vitest, @vue/test-utils, cypress
-zod, vee-validate, @tanstack/vue-query
-eslint, prettier, husky
-
-Este documento é a fonte de verdade para o frontend.
-Todo código novo deve respeitar rigorosamente esta arquitetura.
+### Comentários de estrutura
+- src/app: configuração global, roteamento e layouts
+- src/modules: módulos por feature
+- src/shared: componentes, stores e utilidades reaproveitáveis
+- src/tests: testes unitários e de integração
 
 ---
 
-## 11. Classes e Estrutura Real do Projeto (Scaffold de Arquitetura)
+## 10. Authentication
 
-Abaixo estão listados os arquivos implementados na fundação da arquitetura limpa:
+### Fluxo de autenticação
+```mermaid
+flowchart TD
+    A[Usuário] --> B[Login Page]
+    B --> C[AuthService]
+    C --> D[API /auth/login]
+    D --> E[Token armazenado]
+    E --> F[Dashboard]
+```
 
-### Camada Shared (Compartilhada)
-- **API Client**: [client.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/api/client.ts) - Configuração do Axios com interceptor para injeção dinâmica do token Bearer.
-- **Store Pinia**: [auth.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/stores/auth.ts) - Gerenciamento de estado e persistência das credenciais do usuário.
-- **Entidades de Domínio**:
-  - [CustomerEntity.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/domain/entities/CustomerEntity.ts) - Entidade rica representando o cliente.
-  - [AddressValueObject.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/domain/value-objects/AddressValueObject.ts) - Objeto de valor encapsulando lógica de endereço.
-- **Domain Mapper**: [CustomerMapper.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/domain/mappers/CustomerMapper.ts) - Conversão de DTOs e respostas cruas da API em entidades ricas.
-- **Componentes do Design System (Shared Components)**:
-  - [BaseButton.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/components/BaseButton.vue) - Botão com estados de carregamento e variantes visuais.
-  - [BaseInput.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/components/BaseInput.vue) - Input com controle de foco premium e exibição de erro.
-  - [BaseForm.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/shared/components/BaseForm.vue) - Wrapper estrutural de formulários.
-
-### Módulos de Feature (Bounded Contexts)
-#### Módulo de Autenticação (`modules/auth/`)
-- [AuthApi.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/auth/api/AuthApi.ts) - Comunicação HTTP com rotas de Login e Registro do backend Laravel.
-- [AuthService.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/auth/services/AuthService.ts) - Serviço de aplicação para orquestrar fluxos de autenticação.
-- [LoginPage.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/auth/pages/LoginPage.vue) - Página de Login premium com validações e glassmorphism.
-
-#### Módulo de Clientes (`modules/customers/`)
-- [CustomerApi.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/customers/api/CustomerApi.ts) - Integração HTTP com endpoints `/customers`.
-- [CreateCustomerService.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/customers/services/CreateCustomerService.ts) - UseCase contendo a regra de negócio para verificação de duplicidade.
-- [customerSchema.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/customers/validators/customerSchema.ts) - Validação rigorosa dos campos usando Zod.
-- [CustomerForm.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/customers/components/CustomerForm.vue) - Componente de formulário com auto-preenchimento via ViaCEP.
-- [CustomerPage.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/customers/pages/CustomerPage.vue) - Página de cadastro de clientes.
-
-#### Módulo de Dashboard (`modules/dashboard/`)
-- [DashboardPage.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/modules/dashboard/pages/DashboardPage.vue) - Painel principal com métricas diárias e ações rápidas.
-
-### Infraestrutura da Aplicação Vue
-- **Vue Router**: [index.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/app/router/index.ts) - Roteamento com guards baseados no estado de autenticação.
-- **Layouts Globais**:
-  - [AuthLayout.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/app/layouts/AuthLayout.vue) - Container centralizado com fundo animado premium.
-  - [DashboardLayout.vue](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/app/layouts/DashboardLayout.vue) - Grid de dashboard com barra de navegação lateral.
-
-### Cobertura de Testes Unitários e Integração (Vitest)
-- [CustomerEntity.spec.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/tests/unit/domain/CustomerEntity.spec.ts) - Testes unitários para validação de domínio de cliente e endereço.
-- [CreateCustomerService.spec.ts](file:///c:/Users/MITALO/Desktop/simplyfood/frontend/src/tests/unit/services/CreateCustomerService.spec.ts) - Teste de regra de negócio, mock do cliente HTTP e exceções.
+### Regras atuais
+- login com e-mail e senha
+- token armazenado no cliente
+- rotas protegidas devem exigir autenticação
 
 ---
 
-## Changelog
-- **v1.0** - Criação inicial alinhada ao backend Laravel.
-- **v1.1** - Implementação completa da fundação da arquitetura limpa frontend (Shared layer, Feature modules de Auth e Customers, layouts integrados, roteamento dinâmico com Navigation Guards, formulários reativos validados por Zod, integração ViaCEP, e suíte de testes Vitest automatizada).
+## 11. Validation
+
+### Validações de formulário
+- e-mail: obrigatório e formatado
+- senha: obrigatória
+- nome: obrigatório em cadastros
+
+---
+
+## 12. Fluxos principais
+
+### Fluxo de cadastro de cliente
+```mermaid
+flowchart LR
+    A[Formulário] --> B[Validação]
+    B --> C[Service]
+    C --> D[API]
+    D --> E[Feedback]
+```
+
+---
+
+## 13. Arquitetura
+
+### Arquitetura Frontend
+- camada de apresentação: páginas e componentes
+- camada de aplicação: stores, composables e services
+- camada de infraestrutura: cliente HTTP e integração com backend
+
+### Comunicação entre camadas
+- components delegam eventos para stores/services
+- services isolam comunicação com a API
+- stores centralizam estado de tela e autenticação
+
+---
+
+## 14. Auditoria Estrutural do Projeto
+
+### Relatório de auditoria recomendada
+| Arquivo | Motivo | Dependências | Impacto | Pode ser removido? |
+| --- | --- | --- | --- | --- |
+| arquivos temporários | gerados localmente | dependem do ambiente | baixo | Sim |
+| caches de build | artefatos de compilação | não versionados | baixo | Sim |
+| arquivos de ambiente | configuração local | não devem ser compartilhados | alto | Não |
+| dependências não utilizadas | podem aumentar o custo de manutenção | revisão manual | médio | Talvez |
+
+### Limpeza estrutural
+- remover apenas artefatos locais e temporários
+- não remover módulos funcionais sem avaliação explícita
+- priorizar manutenção e rastreabilidade
 
