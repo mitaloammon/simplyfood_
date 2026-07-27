@@ -98,6 +98,27 @@ A evolução deve manter rastreabilidade entre Sprint -> Feature -> API -> Model
 - Riscos: mudanças de regra de negócio
 - Bloqueios: dependência de integração com frontend
 
+### Backlog consolidado (Sprints)
+- S01: ampliar cobertura de testes para autenticação
+- S02: consolidar CRUD completo de customers/products/orders com critérios de aceite
+- S02: reduzir riscos de divergência de contratos entre API e frontend
+
+### Roadmap incremental (Sprints)
+- Curto prazo: estabilização de autenticação e autorização por role
+- Médio prazo: fechamento dos fluxos operacionais principais
+- Evolução contínua: atualização da matriz SDD a cada endpoint ou teste novo
+
+### Exemplo de rastreabilidade em JSON
+```json
+{
+  "sprint": "S02",
+  "feature": "FEAT-BE-003",
+  "endpoints": ["POST /api/customers", "GET /api/customers/{id}"],
+  "camadas": ["Presentation", "Application", "Domain", "Infrastructure"],
+  "status": "parcialmente implementado"
+}
+```
+
 ---
 
 ## 3. Features
@@ -213,6 +234,21 @@ Cada feature deve manter um escopo claro e reutilizável, com foco em:
 - Application: services e use cases
 - Domain: models, value objects e regras centrais
 - Infrastructure: repositories, integrations e persistência
+
+### Exemplo de contrato de feature em JSON
+```json
+{
+  "featureId": "FEAT-BE-005",
+  "name": "Order Management",
+  "flow": [
+    "OrderController",
+    "OrderService",
+    "OrderRepository",
+    "Order model"
+  ],
+  "statusTransition": "PATCH /api/orders/{id}/status"
+}
+```
 
 ### Feature map detalhado (estado atual)
 
@@ -561,6 +597,14 @@ flowchart TD
 - rotas protegidas: customers, products, orders
 - middleware: token.valid e auth.system:ADMIN,MANAGER,OPERATOR
 - aliases de middleware definidos em bootstrap/app.php
+
+### Exemplo de retorno de erro (autorização)
+```json
+{
+  "status": "error",
+  "message": "Forbidden: You do not have the required permissions."
+}
+```
 
 ### Respostas esperadas
 - 401 Unauthorized: token ausente ou inválido

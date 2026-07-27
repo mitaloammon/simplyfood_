@@ -90,6 +90,27 @@ Toda evolução deve manter rastreabilidade entre Sprint -> Feature -> API -> Mo
   - [ ] dashboard principal
 - Prioridade: Alta
 
+### Backlog consolidado (Sprints)
+- F01: finalizar integração completa de autenticação
+- F02: expandir navegação para módulos além de customers e dashboard
+- F02: conectar fluxos de products e orders já catalogados em src/modules
+
+### Roadmap incremental (Sprints)
+- Curto prazo: estabilizar contratos de auth e customers
+- Médio prazo: conectar products e orders ao router e aos serviços
+- Evolução contínua: manter matriz SDD atualizada por feature entregue
+
+### Exemplo de rastreabilidade em JSON
+```json
+{
+  "sprint": "F02",
+  "feature": "FEAT-FE-002",
+  "rota_ui": "/customers",
+  "api": ["POST /api/customers", "GET /api/customers?whatsapp={value}"],
+  "status": "ativo"
+}
+```
+
 ---
 
 ## 3. Features
@@ -125,7 +146,7 @@ Qualquer alteração deve preservar a experiência do usuário e o contrato com 
 - Dependências: backend customers
 - Arquivos envolvidos: src/modules/customers
 - Componentes: CustomerForm
-- Stores / composables: customer store
+- Stores / composables: estado local da página + validação de formulário
 - Services: CustomerApi
 - Rotas relacionadas: cadastro e consulta de clientes
 - Responsabilidades: coletar dados, validar entrada e comunicar-se com o backend
@@ -171,6 +192,20 @@ Cada feature deve manter um escopo claro e reutilizável, com foco em:
 - Routing: navegação específica da feature
 
 ### Feature map detalhado (estado atual)
+
+### Exemplo de contrato de feature em JSON
+```json
+{
+  "featureId": "FEAT-FE-001",
+  "name": "Authentication Flow",
+  "layers": {
+    "presentation": ["LoginPage.vue"],
+    "application": ["AuthService"],
+    "infrastructure": ["AuthApi", "apiClient"],
+    "domain": ["UserState"]
+  }
+}
+```
 
 #### Feature FEAT-FE-001 - Authentication Flow
 <!--
@@ -416,9 +451,30 @@ frontend/
 flowchart TD
     A[Usuário] --> B[Login Page]
     B --> C[AuthService]
-    C --> D[API /auth/login]
+    C --> D[API /login]
     D --> E[Token armazenado]
     E --> F[Dashboard]
+```
+
+### Contrato de autenticação (request/response)
+```json
+{
+  "request": {
+    "email": "admin@email.com",
+    "password": "********"
+  },
+  "response": {
+    "status": "success",
+    "data": {
+      "token": "valid-1",
+      "user": {
+        "id": 1,
+        "name": "Administrador",
+        "role": "ADMIN"
+      }
+    }
+  }
+}
 ```
 
 ### Regras atuais
