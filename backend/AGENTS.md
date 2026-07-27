@@ -1,9 +1,9 @@
 # SimplyFood Backend - Technical Guide
 
 <!--
-Este documento consolida a visão técnica do backend do projeto Simplify Food.
+Este documento consolida a visão técnica do backend do projeto SimplyFood.
 Ele serve como referência principal para arquitetura, fluxo de desenvolvimento,
-API, autenticação, modelos de dados e convenções de manutenção.
+API, autenticação, modelos de dados, testes e convenções de manutenção.
 -->
 
 ## 1. Project Overview
@@ -20,7 +20,7 @@ O backend do SimplyFood é responsável por fornecer a API principal do sistema,
 - exposição de endpoints JSON para o frontend
 
 ### Arquitetura geral
-O backend segue uma abordagem de arquitetura limpa com separação em camadas:
+O backend segue uma abordagem de arquitetura limpa com separação em camadas, priorizando controllers finos, services para regra de negócio e abstração de persistência.
 
 ```mermaid
 flowchart TD
@@ -46,6 +46,17 @@ flowchart TD
 - models como camada de domínio
 - repositories para abstração de persistência
 - testes obrigatórios via TDD
+
+### Baseline SDD (Spec-Driven Development)
+<!--
+Este AGENTS.md é a especificação técnica viva do backend.
+A evolução deve manter rastreabilidade entre Sprint -> Feature -> API -> Modelos -> Testes.
+-->
+- Fonte de verdade de endpoints: routes/api.php
+- Fonte de verdade de middleware/aliases: bootstrap/app.php
+- Fonte de verdade de fluxos de negócio: app/Application/Services
+- Fonte de verdade de contratos HTTP: app/Http/Controllers, app/Http/Requests, app/Http/Resources
+- Fonte de verdade de persistência: app/Infrastructure/Repositories
 
 ---
 
@@ -99,8 +110,10 @@ validação e contratos de API.
 
 ### Feature 1 - Health Check
 - Nome: Health Check
+- ID de rastreio: FEAT-BE-001
 - Descrição: endpoint para verificar a disponibilidade da API
 - Objetivo: validar se a aplicação responde corretamente
+- Escopo: verificação simples de disponibilidade da aplicação
 - Fluxo: requisição simples -> resposta JSON
 - Dependências: nenhuma
 - Arquivos envolvidos: routes/api.php
@@ -112,8 +125,10 @@ validação e contratos de API.
 
 ### Feature 2 - Autenticação
 - Nome: Authentication
+- ID de rastreio: FEAT-BE-002
 - Descrição: login e registro do sistema
 - Objetivo: gerar sessão/autenticação para uso das rotas protegidas
+- Escopo: autenticação, geração de token e controle de acesso
 - Fluxo: cliente envia credenciais -> AuthController -> AuthService -> token/usuário
 - Dependências: banco de dados, usuário
 - Arquivos envolvidos: app/Http/Controllers/AuthController.php, app/Application/Services/AuthService.php
@@ -125,8 +140,10 @@ validação e contratos de API.
 
 ### Feature 3 - Gestão de Clientes
 - Nome: Customer Management
+- ID de rastreio: FEAT-BE-003
 - Descrição: cadastro, consulta e atualização de clientes
 - Objetivo: centralizar dados de clientes para operações comerciais
+- Escopo: CRUD de clientes com validação e autorização
 - Fluxo: requisição -> controller -> service -> repository -> model
 - Dependências: autenticação, permissões por role
 - Arquivos envolvidos: app/Http/Controllers/CustomerController.php, app/Application/Services/CustomerService.php
@@ -138,8 +155,10 @@ validação e contratos de API.
 
 ### Feature 4 - Gestão de Produtos
 - Nome: Product Management
+- ID de rastreio: FEAT-BE-004
 - Descrição: manipulação de catálogo de produtos
 - Objetivo: permitir manutenção do cardápio ou catálogo base
+- Escopo: listagem, ativação e cadastro de produtos
 - Fluxo: requisição -> controller -> service -> persistence
 - Dependências: autenticação e papéis
 - Arquivos envolvidos: app/Http/Controllers/ProductController.php
@@ -151,8 +170,10 @@ validação e contratos de API.
 
 ### Feature 5 - Gestão de Pedidos
 - Nome: Order Management
+- ID de rastreio: FEAT-BE-005
 - Descrição: criação, consulta e atualização de pedidos
 - Objetivo: controlar ciclo operacional e status do pedido
+- Escopo: criação, consulta e alteração de status em pedidos
 - Fluxo: pedido criado -> status alterado -> consulta do pedido
 - Dependências: clientes, produtos, autenticação
 - Arquivos envolvidos: app/Http/Controllers/OrderController.php, app/Application/Services/OrderService.php
@@ -164,7 +185,139 @@ validação e contratos de API.
 
 ---
 
-## 4. Acceptance Criteria
+## 4. Feature Layer
+
+<!--
+A Feature Layer organiza cada fluxo funcional em um conjunto coeso de arquivos e responsabilidades.
+Essa abordagem facilita rastreabilidade entre requisito, API e implementação sem misturar regra de negócio com transporte HTTP.
+-->
+
+### Padrão adotado
+Cada feature deve manter um escopo claro e reutilizável, com foco em:
+- Objetivo
+- Escopo
+- Fluxo
+- Componentes envolvidos
+- Services
+- Controllers
+- Requests
+- Models
+- Repositories
+- Interfaces
+- Rotas relacionadas
+- Dependências
+- Responsabilidades
+
+### Estrutura sugerida por feature
+- Presentation: controllers, requests e resources
+- Application: services e use cases
+- Domain: models, value objects e regras centrais
+- Infrastructure: repositories, integrations e persistência
+
+### Feature map detalhado (estado atual)
+
+#### Feature FEAT-BE-001 - Health Check
+<!--
+Feature de observabilidade mínima para disponibilidade de API.
+Não concentra regra de negócio.
+-->
+- Objetivo: verificar disponibilidade básica da API
+- Escopo: resposta JSON simples
+- Fluxo: request -> closure route -> JSON
+- Componentes envolvidos: routes/api.php
+- Services: N/A
+- Controllers: N/A
+- Requests: N/A
+- Models: N/A
+- Repositories: N/A
+- Interfaces: N/A
+- Rotas relacionadas: GET /api/health
+- Dependências: framework HTTP do Laravel
+- Responsabilidades: health probe para integração e monitoramento
+
+#### Feature FEAT-BE-002 - Authentication
+<!--
+Feature responsável por login/registro e emissão de token mock (valid-{id}).
+Controllers devem apenas validar entrada e delegar ao service.
+-->
+- Objetivo: autenticar e registrar usuários
+- Escopo: login, register e retorno de token/user
+- Fluxo: route -> AuthController -> AuthService -> User model -> response
+- Componentes envolvidos: AuthController, AuthService
+- Services: AuthService
+- Controllers: AuthController
+- Requests: validação inline no controller (Request::validate)
+- Models: User (app/Domains/Auth/User/User.php)
+- Repositories: N/A dedicado no fluxo atual
+- Interfaces: N/A dedicada no fluxo atual
+- Rotas relacionadas: POST /api/auth/login, POST /api/auth/register, POST /api/login, POST /api/register
+- Dependências: Hash, banco de usuários
+- Responsabilidades: autenticação e criação de usuário
+
+#### Feature FEAT-BE-003 - Customer Management
+<!--
+Feature de clientes com criação pública e operações protegidas.
+Regras de negócio permanecem em CustomerService.
+-->
+- Objetivo: gerenciar ciclo de vida de clientes
+- Escopo: create, list, show, update e delete
+- Fluxo: route -> CustomerController -> CustomerService -> CustomerRepository -> model/resource
+- Componentes envolvidos: CustomerController, StoreCustomerRequest, CustomerResource
+- Services: CustomerService
+- Controllers: CustomerController
+- Requests: StoreCustomerRequest
+- Models: Customer (domínio de Customer)
+- Repositories: CustomerRepository, AddressRepository
+- Interfaces: N/A dedicada no fluxo atual
+- Rotas relacionadas: POST /api/customers (pública), GET/PUT/PATCH/DELETE /api/customers/{id} (protegidas)
+- Dependências: middleware token.valid e auth.system
+- Responsabilidades: persistência de cliente e resposta padronizada
+
+#### Feature FEAT-BE-004 - Product Management
+<!--
+Feature de catálogo com operações protegidas e filtro de ativos.
+-->
+- Objetivo: gerenciar produtos e disponibilidade
+- Escopo: get, getActive, show, post, update e delete
+- Fluxo: route -> ProductController -> ProductService -> ProductRepository -> model
+- Componentes envolvidos: ProductController
+- Services: ProductService
+- Controllers: ProductController
+- Requests: StoreProductRequest (quando aplicável no fluxo de criação/edição)
+- Models: Product (domínio de Product)
+- Repositories: ProductRepository, CategoryRepository
+- Interfaces: N/A dedicada no fluxo atual
+- Rotas relacionadas: GET /api/products, GET /api/products/active, GET /api/products/{id}, POST /api/products, PUT/PATCH /api/products/{id}, DELETE /api/products/{id}
+- Dependências: autenticação e autorização por role
+- Responsabilidades: catálogo, disponibilidade e atualização de produtos
+
+#### Feature FEAT-BE-005 - Order Management
+<!--
+Feature operacional de pedidos com alteração de status e validação semântica.
+-->
+- Objetivo: gerenciar pedidos e transições de status
+- Escopo: get, show, post, update, changeStatus e delete
+- Fluxo: route -> OrderController -> OrderService -> OrderRepository/OrderItemRepository -> model
+- Componentes envolvidos: OrderController
+- Services: OrderService
+- Controllers: OrderController
+- Requests: StoreOrderRequest (quando aplicável no fluxo de criação/edição)
+- Models: Order, OrderItem (domínio de Order)
+- Repositories: OrderRepository, OrderItemRepository
+- Interfaces: N/A dedicada no fluxo atual
+- Rotas relacionadas: GET /api/orders, GET /api/orders/{id}, POST /api/orders, PUT/PATCH /api/orders/{id}, PATCH /api/orders/{id}/status, DELETE /api/orders/{id}
+- Dependências: clientes, produtos, autenticação e autorização
+- Responsabilidades: ciclo operacional do pedido e consistência de status
+
+### Comentário de arquitetura
+<!--
+Controllers devem permanecer finos; regras de negócio devem residir em services ou use cases.
+Persistência e integrações externas devem ser isoladas em repositories e adapters.
+-->
+
+---
+
+## 5. Acceptance Criteria
 
 ### Autenticação
 - Given um usuário válido
@@ -196,7 +349,7 @@ validação e contratos de API.
 
 ---
 
-## 5. API Specification
+## 6. API Specification
 
 ### Endpoints principais
 
@@ -205,12 +358,33 @@ validação e contratos de API.
 | /api/health | GET | - | closure | - | Pública |
 | /api/auth/login | POST | AuthController | login | - | Pública |
 | /api/auth/register | POST | AuthController | register | - | Pública |
+| /api/login | POST | AuthController | login | - | Pública |
+| /api/register | POST | AuthController | register | - | Pública |
+| /api/customers | POST | CustomerController | store | - | Pública |
 | /api/customers | GET | CustomerController | get | token.valid, auth.system | Privada |
 | /api/customers/{id} | GET | CustomerController | show | token.valid, auth.system | Privada |
+| /api/customers/{id} | PUT | CustomerController | update | token.valid, auth.system | Privada |
+| /api/customers/{id} | PATCH | CustomerController | update | token.valid, auth.system | Privada |
+| /api/customers/{id} | DELETE | CustomerController | deleted | token.valid, auth.system | Privada |
 | /api/products | GET | ProductController | get | token.valid, auth.system | Privada |
 | /api/products/active | GET | ProductController | getActive | token.valid, auth.system | Privada |
+| /api/products/{id} | GET | ProductController | show | token.valid, auth.system | Privada |
+| /api/products | POST | ProductController | post | token.valid, auth.system | Privada |
+| /api/products/{id} | PUT | ProductController | update | token.valid, auth.system | Privada |
+| /api/products/{id} | PATCH | ProductController | update | token.valid, auth.system | Privada |
+| /api/products/{id} | DELETE | ProductController | deleted | token.valid, auth.system | Privada |
 | /api/orders | GET | OrderController | get | token.valid, auth.system | Privada |
+| /api/orders/{id} | GET | OrderController | show | token.valid, auth.system | Privada |
+| /api/orders | POST | OrderController | post | token.valid, auth.system | Privada |
+| /api/orders/{id} | PUT | OrderController | update | token.valid, auth.system | Privada |
+| /api/orders/{id} | PATCH | OrderController | update | token.valid, auth.system | Privada |
 | /api/orders/{id}/status | PATCH | OrderController | changeStatus | token.valid, auth.system | Privada |
+| /api/orders/{id} | DELETE | OrderController | deleted | token.valid, auth.system | Privada |
+
+### Autenticação e autorização (estado atual)
+- token.valid: valida bearer token no request
+- auth.system: aplica autorização por role (ADMIN, MANAGER, OPERATOR)
+- rotas de autenticação possuem versões com prefixo /auth e sem prefixo
 
 ### Payload example - Login
 ```json
@@ -250,7 +424,7 @@ validação e contratos de API.
 
 ---
 
-## 6. Data Models
+## 7. Data Models
 
 ### Modelos principais
 - User
@@ -284,11 +458,17 @@ erDiagram
 
 ### Model - Order
 - atributos: id, customer_id, status, total
-- regras: fluxo de status e validação
+- regras: fluxo de status e validação
+
+### Rastreio por camadas (resumo)
+- Presentation: controllers + requests + resources
+- Application: services em app/Application/Services
+- Domain: entidades em app/Domains
+- Infrastructure: repositories em app/Infrastructure/Repositories
 
 ---
 
-## 7. Stack
+## 8. Stack
 
 ### Backend
 - Laravel 12
@@ -311,7 +491,7 @@ erDiagram
 
 ---
 
-## 8. Coder Agent
+## 9. Coder Agent
 
 ### Backend Agent
 - Agent ID: BACKEND-AGENT
@@ -333,7 +513,7 @@ erDiagram
 
 ---
 
-## 9. File Structure
+## 10. File Structure
 
 ```text
 backend/
@@ -362,7 +542,7 @@ backend/
 
 ---
 
-## 10. Authentication
+## 11. Authentication
 
 ### Fluxo de autenticação
 ```mermaid
@@ -380,6 +560,7 @@ flowchart TD
 - rotas públicas: /api/health, /api/auth/login, /api/auth/register
 - rotas protegidas: customers, products, orders
 - middleware: token.valid e auth.system:ADMIN,MANAGER,OPERATOR
+- aliases de middleware definidos em bootstrap/app.php
 
 ### Respostas esperadas
 - 401 Unauthorized: token ausente ou inválido
@@ -387,7 +568,7 @@ flowchart TD
 
 ---
 
-## 11. Validation
+## 12. Validation
 
 ### Validações de autenticação
 - email: required, email
@@ -404,7 +585,7 @@ flowchart TD
 
 ---
 
-## 12. Fluxos principais
+## 13. Fluxos principais
 
 ### Fluxo de login
 ```mermaid
@@ -426,13 +607,32 @@ flowchart TD
 
 ---
 
-## 13. Arquitetura
+## 14. Clean Architecture
 
-### Arquitetura Backend
-- camada de entrada: routes + controllers
-- camada de aplicação: services/use cases
-- camada de domínio: models e regras centrais
-- camada de infraestrutura: repositories e integrações externas
+<!--
+A arquitetura do backend preserva separação entre entrada HTTP, aplicação, domínio e infraestrutura.
+Essa divisão favorece evolução incremental, testes e menor acoplamento entre camadas.
+-->
+
+### Presentation Layer
+- routes, controllers, requests e resources
+- responsabilidade: receber requisições e formatar respostas
+
+### Feature Layer
+- fluxos funcionais organizados por feature
+- responsabilidade: coordenar services, requests, models e integrações para um caso de uso
+
+### Application Layer
+- services e use cases
+- responsabilidade: encapsular regras de aplicação e orquestração de fluxo
+
+### Domain Layer
+- models, entidades e regras centrais
+- responsabilidade: representar o negócio e garantir consistência interna
+
+### Infrastructure Layer
+- repositories, adapters e integração com serviços externos
+- responsabilidade: isolar dependências tecnológicas e persistência
 
 ### Comunicação entre camadas
 - controllers não devem conter regra de negócio
@@ -442,7 +642,7 @@ flowchart TD
 
 ---
 
-## 14. Auditoria Estrutural do Projeto
+## 15. Auditoria Estrutural do Projeto
 
 ### Relatório de auditoria recomendada
 | Arquivo | Motivo | Dependências | Impacto | Pode ser removido? |
@@ -457,10 +657,10 @@ flowchart TD
 - não remover arquivos funcionais sem confirmação explícita
 - priorizar segurança e preservação da estrutura atual
 
-### 8.4. Códigos de erro possíveis nas autenticações e retornos
+### Códigos de erro possíveis nas autenticações e retornos
 
-- `401 Unauthorized`
-  - Utilizado quando o token não é enviado, é inválido ou não passa pela validação de `token.valid`.
+- 401 Unauthorized
+  - Utilizado quando o token não é enviado, é inválido ou não passa pela validação de token.valid.
   - Exemplo de retorno:
     ```json
     {
@@ -469,19 +669,16 @@ flowchart TD
     }
     ```
 
-- `401 Unauthorized` nas rotas de autenticação
-  - O controller de login retorna `401` quando as credenciais são inválidas ou a autenticação falha.
-
-- `400 Bad Request`
+- 400 Bad Request
   - Utilizado no endpoint de registro quando os dados enviados não passam na validação ou no fluxo de criação.
 
-- `403 Forbidden`
-  - Esperado quando o usuário está autenticado, mas não possui um dos papéis permitidos (`ADMIN`, `MANAGER` ou `OPERATOR`) para acessar uma rota protegida.
+- 403 Forbidden
+  - Esperado quando o usuário está autenticado, mas não possui um dos papéis permitidos (ADMIN, MANAGER ou OPERATOR) para acessar uma rota protegida.
 
-- `422 Unprocessable Entity`
+- 422 Unprocessable Entity
   - Utilizado em operações específicas, como alteração de status de pedido, quando o payload recebido é semanticamente inválido.
 
-### 8.5. Regras de negócio para as rotas protegidas
+### Regras de negócio para as rotas protegidas
 
 - As rotas protegidas devem sempre ser tratadas como operações sensíveis e exigirem autenticação explícita.
 - A validação de token ocorre antes de qualquer execução de controller.
@@ -490,72 +687,21 @@ flowchart TD
 
 ---
 
-## 9. Camada TDD (Test-Driven Development)
+## 16. TDD e Qualidade
 
 ### Princípios do TDD no SimplifyFood
 
-1. **Red → Green → Refactor**
-2. Testes como Especificação Executável
-3. Isolamento total com Mocks
+1. Red → Green → Refactor
+2. Testes como especificação executável
+3. Isolamento total com mocks quando necessário
 4. Cobertura mínima de 80% em Application e Domain
 5. Todo novo código deve ser precedido por testes
 
-## 10. Variáveis Recomendadas no .env (Exemplo) 
-
-# ==================== APP CONFIG ====================
-APP_NAME=SimplifyFood
-APP_ENV=local                    # Opções: local | homologacao | production | testing
-APP_KEY=
-APP_DEBUG=true
-APP_URL=http://localhost
-APP_TIMEZONE=America/Sao_Paulo
-
-# ==================== DATABASE ====================
-DB_CONNECTION=pgsql
-DB_HOST=127.0.0.1
-DB_PORT=5432
-DB_DATABASE=simplifyfood
-DB_USERNAME=postgres
-DB_PASSWORD=password
-
-# ==================== CACHE & QUEUE ====================
-CACHE_DRIVER=redis
-QUEUE_CONNECTION=redis
-SESSION_DRIVER=redis
-
-# ==================== REDIS ====================
-REDIS_HOST=127.0.0.1
-REDIS_PASSWORD=null
-REDIS_PORT=6379
-
-# ==================== EXTERNAL SERVICES ====================
-VIACEP_BASE_URL=https://viacep.com.br/ws
-MERCADOPAGO_PUBLIC_KEY=TEST-...
-MERCADOPAGO_ACCESS_TOKEN=TEST-...
-
-# ==================== LOGGING ====================
-LOG_CHANNEL=stack
-LOG_DEPRECATIONS_CHANNEL=null
-LOG_LEVEL=debug
-
-# ==================== MAIL ====================
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.mailtrap.io
-MAIL_PORT=2525
-MAIL_USERNAME=null
-MAIL_PASSWORD=null
-MAIL_ENCRYPTION=null
-MAIL_FROM_ADDRESS="no-reply@simplifyfood.com.br"
-MAIL_FROM_NAME="${APP_NAME}"
-
-# ==================== SANCTUM / AUTH ====================
-SANCTUM_STATEFUL_DOMAINS=localhost:3000,127.0.0.1:8000
-
-# ==================== TESTING ====================
-TEST_DB_DATABASE=simplifyfood_test
-TEST_DB_USERNAME=postgres
-TEST_DB_PASSWORD=password
-
+### Observação de consistência
+<!--
+O nome do projeto aparece como SimplyFood e SimplifyFood em partes históricas da documentação.
+Para manutenção, considerar SimplyFood como nomenclatura canônica, preservando referências históricas existentes.
+-->
 
 ### Estrutura Recomendada de Testes
 
@@ -589,114 +735,6 @@ tests/
     └── CleanArchitectureTest.php
 ```
 
-### Exemplo Completo: CustomerServiceTest.php
-
-```php
-<?php
-
-namespace Tests\Unit\Application\Services;
-
-use App\Application\Services\CustomerService;
-use App\Infrastructure\Repositories\CustomerRepository;
-use App\Domains\Customer\Customer;
-use Illuminate\Support\Facades\Http;
-use Mockery;
-use Tests\TestCase;
-
-class CustomerServiceTest extends TestCase
-{
-    protected CustomerService $service;
-    protected CustomerRepository $repository;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-        $this->repository = Mockery::mock(CustomerRepository::class);
-        $this->service = new CustomerService($this->repository);
-    }
-
-    /** @test */
-    public function it_creates_a_new_customer_and_fetches_address_via_viacep()
-    {
-        // Arrange
-        $data = [
-            'name' => 'João Silva',
-            'email' => 'joao@test.com',
-            'phone' => '11999999999',
-            'whatsapp' => '11999999999',
-            'cpf_cnpj' => '12345678901',
-            'cep' => '01001000'
-        ];
-
-        $mockedAddress = ['logradouro' => 'Praça da Sé', 'bairro' => 'Sé', 'localidade' => 'São Paulo'];
-
-        Http::fake([
-            'viacep.com.br/*' => Http::response($mockedAddress, 200)
-        ]);
-
-        $this->repository->shouldReceive('create')
-            ->once()
-            ->with(Mockery::subset($data))
-            ->andReturn(new Customer($data));
-
-        // Act
-        $customer = $this->service->create($data);
-
-        // Assert
-        $this->assertInstanceOf(Customer::class, $customer);
-        $this->assertEquals('João Silva', $customer->name);
-    }
-
-    /** @test */
-    public function it_throws_exception_when_customer_already_exists_by_whatsapp()
-    {
-        $this->expectException(\Exception::class);
-
-        $this->repository->shouldReceive('findByWhatsapp')
-            ->once()
-            ->andReturn(new Customer(['whatsapp' => '11999999999']));
-
-        $this->service->create(['whatsapp' => '11999999999']);
-    }
-}
-```
-
-### Exemplo Feature Test: CustomerApiTest.php
-
-```php
-<?php
-
-namespace Tests\Feature\Customer;
-
-use Tests\TestCase;
-
-class CustomerApiTest extends TestCase
-{
-    /** @test */
-    public function it_can_create_a_customer_via_api()
-    {
-        $payload = [
-            'name' => 'Maria Oliveira',
-            'email' => 'maria@test.com',
-            'whatsapp' => '11988888888',
-            'cpf_cnpj' => '98765432100'
-        ];
-
-        $response = $this->postJson('/api/customers', $payload);
-
-        $response->assertStatus(201)
-                 ->assertJsonStructure([
-                     'data' => ['id', 'name', 'email', 'whatsapp'],
-                     'message'
-                 ]);
-
-        $this->assertDatabaseHas('customers', ['email' => 'maria@test.com']);
-    }
-}
-```
-
----
-
 ### Comandos Úteis
 
 ```bash
@@ -713,78 +751,104 @@ php artisan test --coverage
 ./vendor/bin/pest --watch
 ```
 
-**Recomendações de Pacotes:**
-- `pestphp/pest` + `pestphp/pest-plugin-arch`
-- `mockery/mockery`
-- `phpstan/phpstan` (opcional para análise estática)
-
 ---
 
-## 10. Segregação e Configuração de Ambientes
+## 17. Ambiente e Configuração
 
-O projeto suporta a segregação completa entre os ambientes: `local`, `homologacao`, `production` e `testing`.
+### Variáveis recomendadas no .env
 
-### Diretrizes de Segurança e Configurações Customizadas
+```env
+# App
+APP_NAME=SimplifyFood
+APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
+APP_URL=http://localhost
+APP_TIMEZONE=America/Sao_Paulo
 
-Para garantir a segregação e robustez entre os ambientes no nível do framework, foram aplicadas as seguintes lógicas customizadas:
+# Database
+DB_CONNECTION=pgsql
+DB_HOST=127.0.0.1
+DB_PORT=5432
+DB_DATABASE=simplifyfood
+DB_USERNAME=postgres
+DB_PASSWORD=password
 
-- **Timezone e Segurança em [config/app.php](file:///c:/Users/MITALO/Desktop/simplyfood/backend/config/app.php)**:
-  - O timezone da aplicação lê dinamicamente a variável `APP_TIMEZONE` do `.env` (com fallback para `'America/Sao_Paulo'`).
-  - A opção `debug` é forçada a `false` em ambiente de produção (`APP_ENV === 'production'`), independente do que estiver definido em `APP_DEBUG`, evitando exibição indesejada de dados sensíveis.
+# Cache / Queue / Session
+CACHE_DRIVER=redis
+QUEUE_CONNECTION=redis
+SESSION_DRIVER=redis
 
-- **Banco de Dados em [config/database.php](file:///c:/Users/MITALO/Desktop/simplyfood/backend/config/database.php)**:
-  - A conexão `mysql` detecta se o ambiente atual é `testing`. Caso afirmativo, ela substitui dinamicamente o banco, o usuário e a senha pelas variáveis `TEST_DB_DATABASE`, `TEST_DB_USERNAME` e `TEST_DB_PASSWORD`.
+# Redis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=null
+REDIS_PORT=6379
 
-- **Mapeamento de Testes em [phpunit.xml](file:///c:/Users/MITALO/Desktop/simplyfood/backend/phpunit.xml)**:
-  - A suíte de testes padrão usa SQLite em memória (`:memory:`) por questões de performance.
-  - Para rodar testes no PostgreSQL real (como em pipelines de CI ou homologação), os desenvolvedores podem criar um arquivo `.env.testing` baseado em `.env.testing.example`, cujas variáveis sobrescreverão as do `phpunit.xml`.
+# External services
+VIACEP_BASE_URL=https://viacep.com.br/ws
+MERCADOPAGO_PUBLIC_KEY=TEST-...
+MERCADOPAGO_ACCESS_TOKEN=TEST-...
 
----
+# Mail
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.mailtrap.io
+MAIL_PORT=2525
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_ENCRYPTION=null
+MAIL_FROM_ADDRESS="no-reply@simplifyfood.com.br"
+MAIL_FROM_NAME="${APP_NAME}"
 
-### Comandos de Configuração por Ambiente
+# Sanctum / Auth
+SANCTUM_STATEFUL_DOMAINS=localhost:3000,127.0.0.1:8000
+
+# Testing
+TEST_DB_DATABASE=simplifyfood_test
+TEST_DB_USERNAME=postgres
+TEST_DB_PASSWORD=password
+```
+
+### Comandos de configuração por ambiente
 
 #### Ambiente Local
 ```bash
-# 1. Copiar as variáveis de ambiente
 cp .env.example .env
-
-# 2. Instalar dependências
 composer install
-
-# 3. Gerar a chave da aplicação
 php artisan key:generate
-
-# 4. Rodar as migrações locais
 php artisan migrate
 ```
 
 #### Ambiente de Homologação / Produção
 ```bash
-# 1. Copiar variáveis de ambiente do respectivo ambiente
-cp .env.example .env # E preencher com as credenciais reais
-
-# 2. Instalar dependências otimizadas (sem dev)
+cp .env.example .env
 composer install --no-dev --optimize-autoloader
-
-# 3. Otimizar carregamento de arquivos do Laravel
 php artisan config:cache
 php artisan route:cache
 php artisan view:cache
-
-# 4. Rodar as migrações de produção com segurança (force)
 php artisan migrate --force
 ```
 
 #### Ambiente de Testes
 ```bash
-# Execução padrão (SQLite em memória)
-php artisan test
-
-# Opcional: Execução no PostgreSQL real de testes
-# 1. Copiar variáveis de ambiente de teste
-cp .env.testing.example .env.testing # E ajustar credenciais se necessário
-# 2. Rodar testes
 php artisan test
 ```
+
+---
+
+## 18. Matriz de Rastreabilidade (SDD)
+
+| Sprint | Feature | Endpoints principais | Models | Testes relacionados |
+| --- | --- | --- | --- | --- |
+| S01 | FEAT-BE-001 Health | GET /api/health | N/A | tests/Feature (health quando aplicável) |
+| S01 | FEAT-BE-002 Authentication | POST /api/auth/login, /api/auth/register, /api/login, /api/register | User | testes de auth (parciais) |
+| S02 | FEAT-BE-003 Customers | /api/customers* | Customer | tests/Feature/Customer/CustomerApiTest.php |
+| S02 | FEAT-BE-004 Products | /api/products* | Product | testes pendentes/refinamento |
+| S02 | FEAT-BE-005 Orders | /api/orders* | Order, OrderItem | testes pendentes/refinamento |
+
+### Diretriz de atualização da matriz
+<!--
+Sempre atualizar esta matriz quando houver nova rota, alteração de contrato, inclusão de model
+ou criação de teste de feature/unit para manter rastreabilidade entre requisito e implementação.
+-->
 
 ---
