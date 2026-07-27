@@ -244,13 +244,13 @@ A lógica de fluxo deve permanecer em services, stores e composables, de forma p
 ## 5. Acceptance Criteria
 
 ### Autenticação
-- Given um usuário cadastrado
-- When preencher senha válida
-- Then deve ser autenticado e redirecionado
+- Dado um usuário cadastrado
+- Quando preencher senha válida
+- Então deve ser autenticado e redirecionado
 
-- Given usuário inválido
-- When tentar entrar
-- Then deve receber mensagem de erro
+- Dado usuário inválido
+- Quando tentar entrar
+- Então deve receber mensagem de erro
 
 ### Cadastro de Clientes
 - Checklist funcional:
