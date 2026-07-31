@@ -896,3 +896,58 @@ ou criação de teste de feature/unit para manter rastreabilidade entre requisit
 -->
 
 ---
+
+## 19. Integração Inertia (Dashboard)
+
+### Objetivo da implementação
+- integrar Backend Laravel ao Frontend Vue via Inertia para renderização do painel do usuário
+- manter controllers finos e regra de negócio centralizada em service
+- preservar autenticação e autorização já existentes
+
+### Arquitetura utilizada
+- Presentation: `routes/web.php` e `app/Http/Controllers/DashboardController.php`
+- Application: `app/Application/Services/DashboardService.php`
+- Frontend Inertia: `resources/js/Pages/Dashboard.vue`
+- View raiz Inertia: `resources/views/app.blade.php`
+
+### Fluxo Backend -> Inertia -> Frontend
+```mermaid
+flowchart LR
+  A[GET /dashboard] --> B[token.valid + auth.system]
+  B --> C[DashboardController]
+  C --> D[DashboardService]
+  D --> E[Payload minimo user + metrics]
+  E --> F[Inertia render Dashboard]
+  F --> G[resources/js/Pages/Dashboard.vue defineProps]
+```
+
+### Responsabilidades por camada
+- `DashboardController`: receber request autenticada e chamar serviço
+- `DashboardService`: calcular métricas e montar payload mínimo
+- `Dashboard.vue`: renderizar props recebidas sem nova chamada HTTP
+
+### Services utilizados
+- `DashboardService` (novo)
+- models reutilizados: `Customer`, `Order`, `Delivery`, `User`
+
+### Regras de negócio e segurança
+- rota protegida por `token.valid` e `auth.system:ADMIN,MANAGER,OPERATOR`
+- payload minimizado: somente `id`, `name`, `role` do usuário e métricas de dashboard
+- sem exposição de campos sensíveis (password, token, auditoria)
+
+### Performance
+- agregações feitas por consulta (`count`, `sum`)
+- cálculo de média de entregas apenas com campos necessários (`created_at`, `delivered_at`)
+
+### Dependências utilizadas
+- `inertiajs/inertia-laravel` (Composer)
+- `@inertiajs/vue3` (NPM)
+- `@heroicons/vue` (NPM)
+
+### Exemplo de uso
+```php
+return Inertia::render('Dashboard', [
+  'user' => $dashboard['user'],
+  'metrics' => $dashboard['metrics'],
+]);
+```

@@ -581,3 +581,55 @@ Evitar duplicar conteúdo já detalhado nas seções 3, 4 e 6.
 - não remover módulos funcionais sem avaliação explícita
 - priorizar manutenção e rastreabilidade
 
+---
+
+## 17. Integração Laravel + Inertia (Painel)
+
+### Objetivo da implementação
+- exibir no painel dados vindos do backend via Inertia
+- eliminar necessidade de request HTTP adicional para dados iniciais do dashboard
+- manter padrão de consumo por props com `defineProps`
+
+### Arquitetura utilizada
+- Backend entrega página Inertia em `backend/resources/js/Pages/Dashboard.vue`
+- Frontend da página recebe dados em `defineProps({ user, metrics })`
+- Contrato de dados permanece mínimo e focado em exibição
+
+### Fluxo Backend -> Inertia -> Frontend
+```mermaid
+flowchart LR
+    A[Laravel Controller] --> B[Inertia::render Dashboard]
+    B --> C[Props user + metrics]
+    C --> D[Dashboard.vue]
+    D --> E[Render UI com Tailwind + Heroicons]
+```
+
+### Responsabilidades de cada camada
+- Backend: autenticar, autorizar e agregar dados
+- Inertia: transportar props com payload enxuto
+- Vue: renderizar dados recebidos sem axios no carregamento inicial
+
+### Services e componentes
+- Services do backend utilizados: `DashboardService`
+- Componente/página nova para Inertia: `backend/resources/js/Pages/Dashboard.vue`
+- Ícones utilizados: Heroicons (`@heroicons/vue`)
+
+### Regras de negócio e autorização
+- rota protegida por middlewares de autenticação/autorização no backend
+- usuário só acessa painel com perfil permitido
+- dados sensíveis não são expostos no payload de props
+
+### Dependências utilizadas
+- `@inertiajs/vue3`
+- `@heroicons/vue`
+
+### Exemplo de consumo com props
+```vue
+<script setup>
+defineProps({
+  user: { type: Object, required: true },
+  metrics: { type: Array, required: true }
+})
+</script>
+```
+
