@@ -5,14 +5,17 @@ namespace Tests\Unit\Application\Services;
 use App\Application\Services\CustomerService;
 use App\Infrastructure\Repositories\CustomerRepository;
 use App\Domains\Customer\Customer;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Mockery;
 use Tests\TestCase;
 
 class CustomerServiceTest extends TestCase
 {
     protected CustomerService $service;
-    protected CustomerRepository $repository;
+    /** @var CustomerRepository&\Mockery\MockInterface */
+    protected $repository;
 
     protected function setUp(): void
     {
@@ -51,7 +54,7 @@ class CustomerServiceTest extends TestCase
             ->andReturn(new Customer($data));
 
         // Act
-        $customer = $this->service->create($data);
+        $customer = $this->service->post($data);
 
         // Assert
         $this->assertInstanceOf(Customer::class, $customer);
@@ -67,6 +70,50 @@ class CustomerServiceTest extends TestCase
             ->once()
             ->andReturn(new Customer(['whatsapp' => '11999999999']));
 
-        $this->service->create(['whatsapp' => '11999999999']);
+        $this->service->post(['whatsapp' => '11999999999']);
+    }
+
+    /** @test */
+    public function it_creates_customer_even_when_viacep_is_unavailable()
+    {
+        $data = [
+            'name' => 'Empresa Teste',
+            'email' => 'empresa@test.com',
+            'phone' => '7133331234',
+            'whatsapp' => '71988887777',
+            'cpf_cnpj' => '12345678000199',
+            'cep' => '40050330',
+            'address' => 'Endereco Manual',
+            'neighborhood' => 'Centro',
+            'city' => 'Salvador',
+            'state' => 'BA',
+        ];
+
+        Http::fake(function () {
+            throw new ConnectionException('SSL certificate problem');
+        });
+
+        $this->repository->shouldReceive('findByWhatsapp')
+            ->once()
+            ->with('71988887777')
+            ->andReturn(null);
+
+        $this->repository->shouldReceive('create')
+            ->once()
+            ->with(Mockery::subset($data))
+            ->andReturn(new Customer($data));
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context): bool {
+                return $message === 'ViaCEP lookup failed during customer creation.'
+                    && ($context['cep'] ?? null) === '40050330'
+                    && ($context['exception'] ?? null) === ConnectionException::class;
+            });
+
+        $customer = $this->service->post($data);
+
+        $this->assertInstanceOf(Customer::class, $customer);
+        $this->assertEquals('Empresa Teste', $customer->name);
     }
 }

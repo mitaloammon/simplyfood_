@@ -5,12 +5,15 @@ namespace App\Domains\Order;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Domains\Customer\Customer;
+use App\Domains\Auth\User\User;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Order extends Model
 {
     use SoftDeletes;
 
     protected $fillable = [
+        'user_id',
         'customer_id',
         'status', // WAITING_PAYMENT, PAID, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
         'total'
@@ -29,6 +32,11 @@ class Order extends Model
     public function customer()
     {
         return $this->belongsTo(Customer::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function items()

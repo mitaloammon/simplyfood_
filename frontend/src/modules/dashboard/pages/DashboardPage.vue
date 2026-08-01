@@ -1,33 +1,53 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useAuthStore } from '@/shared/stores/auth';
+import { useDashboardMetrics } from '../composables/useDashboardMetrics';
 
 const authStore = useAuthStore();
+const { loading, errorMessage, metrics, user, loadMetrics } = useDashboardMetrics();
 
-const metrics = ref([
-  { title: 'Clientes Cadastrados', value: '1.248', change: '+12% este mês', icon: '✎', color: '#3182ce' },
-  { title: 'Pedidos Hoje', value: '42', change: '+8% em relação a ontem', icon: '☑︎', color: '#38a169' },
-  { title: 'Faturamento Diário', value: 'R$ 2.450,00', change: '+15% em relação a ontem', icon: '$', color: '#dd6b20' },
-  { title: 'Tempo Médio Entrega', value: '28 min', change: '-3 min em relação a ontem', icon: '⏱︎', color: '#e53e3e' }
-]);
+const welcomeName = computed(() => {
+  const rawName = user.value?.name || authStore.user?.name || 'Operador';
+  return rawName.charAt(0).toUpperCase() + rawName.slice(1);
+});
+
+const metricColorMap: Record<string, string> = {
+  customers: '#3182ce',
+  orders_today: '#38a169',
+  revenue_today: '#dd6b20',
+  delivery_avg: '#e53e3e',
+};
+
+const resolveMetricColor = (key: string): string => metricColorMap[key] || '#94a3b8';
 </script>
 
 <template>
   <div class="dashboard-container">
     <div class="dashboard-header">
-      <h1 class="welcome-title">Bem-vindo de volta, <span>{{ authStore.user?.name || 'Operador' }}</span>!</h1>
+      <h1 class="welcome-title">Bem-vindo de volta, <span>{{ welcomeName }}</span>!</h1>
       <p class="welcome-subtitle">Aqui está um resumo do SimplyFood para o dia de hoje.</p>
     </div>
 
-    <div class="metrics-grid">
-      <div v-for="(metric, idx) in metrics" :key="idx" class="metric-card">
-        <div class="metric-icon-wrapper" :style="{ backgroundColor: metric.color + '15', color: metric.color }">
-          {{ metric.icon }}
+    <div v-if="errorMessage" class="alert alert-error">
+      <p>{{ errorMessage }}</p>
+      <button class="retry-button" @click="loadMetrics">Tentar novamente</button>
+    </div>
+
+    <div class="metrics-grid" :aria-busy="loading">
+      <div v-if="loading" v-for="idx in 4" :key="`skeleton-${idx}`" class="metric-card metric-card-skeleton">
+        <div class="skeleton skeleton-dot"></div>
+        <div class="metric-content">
+          <div class="skeleton skeleton-line"></div>
+          <div class="skeleton skeleton-value"></div>
         </div>
+      </div>
+
+      <div v-else v-for="metric in metrics" :key="metric.key" class="metric-card">
+        <div class="metric-bullet" :style="{ backgroundColor: resolveMetricColor(metric.key) }"></div>
         <div class="metric-content">
           <p class="metric-title">{{ metric.title }}</p>
           <p class="metric-value">{{ metric.value }}</p>
-          <p class="metric-change">{{ metric.change }}</p>
+          <p class="metric-description">{{ metric.description }}</p>
         </div>
       </div>
     </div>
@@ -35,11 +55,17 @@ const metrics = ref([
     <div class="quick-actions-section">
       <h2 class="section-title">Ações Rápidas</h2>
       <div class="actions-grid">
-        <router-link to="/customers" class="action-card">
-          <div class="action-icon">↘︎</div>
+        <router-link :to="{ path: '/customers', query: { action: 'create' } }" class="action-card">
           <div class="action-details">
-            <h3>Cadastrar Novo Cliente</h3>
-            <p>Adicione um novo cliente e suas informações de entrega.</p>
+            <h3>Novo Cliente</h3>
+            <p>Inicia o fluxo de cadastro de um novo cliente.</p>
+          </div>
+        </router-link>
+
+        <router-link :to="{ path: '/orders', query: { action: 'create' } }" class="action-card">
+          <div class="action-details">
+            <h3>Novo Pedido</h3>
+            <p>Inicia o fluxo de criacao de um novo pedido.</p>
           </div>
         </router-link>
       </div>
@@ -68,7 +94,7 @@ const metrics = ref([
 }
 
 .welcome-title {
-  font-family: 'Outfit', sans-serif;
+  font-family: inherit;
   font-size: 2.2rem;
   font-weight: 700;
   color: #ffffff;
@@ -77,12 +103,13 @@ const metrics = ref([
 
 .welcome-title span {
   background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .welcome-subtitle {
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
   font-size: 0.95rem;
   color: #a0aec0;
   margin: 0;
@@ -119,24 +146,93 @@ const metrics = ref([
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.metric-card-skeleton {
+  pointer-events: none;
+}
+
 .metric-card:hover {
   transform: translateY(-4px);
   border-color: rgba(255, 255, 255, 0.15);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
 }
 
-.metric-icon-wrapper {
-  font-size: 1.5rem;
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
+.metric-bullet {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  margin-top: 0.3rem;
+  flex-shrink: 0;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.15) 25%, rgba(148, 163, 184, 0.35) 50%, rgba(148, 163, 184, 0.15) 75%);
+  background-size: 200% 100%;
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  margin-top: 0.3rem;
+}
+
+.skeleton-line {
+  width: 145px;
+  height: 14px;
+  border-radius: 999px;
+  margin-bottom: 0.55rem;
+}
+
+.skeleton-value {
+  width: 100px;
+  height: 24px;
+  border-radius: 999px;
+}
+
+.alert {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 12px;
+}
+
+.alert-error {
+  background: rgba(229, 62, 62, 0.15);
+  border: 1px solid rgba(229, 62, 62, 0.25);
+  color: #fc8181;
+}
+
+.retry-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.65);
+  color: #f8fafc;
+  border-radius: 10px;
+  padding: 0.45rem 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.retry-button:hover {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(30, 41, 59, 0.7);
 }
 
 .metric-content {
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
 }
 
 .metric-title {
@@ -147,25 +243,25 @@ const metrics = ref([
 }
 
 .metric-value {
-  font-family: 'Outfit', sans-serif;
+  font-family: inherit;
   font-size: 1.6rem;
   font-weight: 700;
   color: #ffffff;
   margin: 0 0 0.35rem 0;
 }
 
-.metric-change {
-  font-size: 0.75rem;
-  color: #48bb78;
+.metric-description {
+  font-size: 0.8rem;
+  color: #94a3b8;
   margin: 0;
 }
 
 .quick-actions-section {
-  font-family: 'Inter', sans-serif;
+  font-family: inherit;
 }
 
 .section-title {
-  font-family: 'Outfit', sans-serif;
+  font-family: inherit;
   font-size: 1.5rem;
   font-weight: 600;
   color: #ffffff;
@@ -204,12 +300,8 @@ const metrics = ref([
   box-shadow: 0 10px 20px rgba(255, 75, 43, 0.15);
 }
 
-.action-icon {
-  font-size: 1.8rem;
-}
-
 .action-details h3 {
-  font-family: 'Outfit', sans-serif;
+  font-family: inherit;
   font-size: 1.1rem;
   font-weight: 600;
   color: #ffffff;

@@ -7,6 +7,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Builder;
 use App\Domains\Customer\Customer;
+use App\Domains\Order\Order;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable
@@ -76,6 +77,11 @@ class User extends Authenticatable
     public function auditLogs()
     {
         // To be defined in Audit Logs section
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(Order::class);
     }
 
     protected static function newFactory()

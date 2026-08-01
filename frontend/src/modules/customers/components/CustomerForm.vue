@@ -14,6 +14,7 @@ const emit = defineEmits(['submit']);
 
 const form = ref<CustomerFormInput>({
   name: '',
+  phone: '',
   email: '',
   whatsapp: '55',
   cpfCnpj: '',
@@ -88,9 +89,17 @@ const onSubmit = () => {
         />
 
         <BaseInput
+          v-model="form.phone"
+          label="Telefone"
+          placeholder="ex: 1133334444"
+          :error="errors.phone"
+          :disabled="loading"
+        />
+
+        <BaseInput
           v-model="form.whatsapp"
           label="WhatsApp"
-          placeholder="ex: 5511999999999"
+          placeholder="ex: +55 11 9 9999 9999"
           :error="errors.whatsapp"
           :disabled="loading"
         />

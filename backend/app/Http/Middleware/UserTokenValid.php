@@ -13,8 +13,10 @@ class UserTokenValid
      */
     public function handle(Request $request, Closure $next): Response
     {
+        $hasSanctumGuard = config('auth.guards.sanctum') !== null;
+
         // Check if user is authenticated via Sanctum
-        if (auth('sanctum')->check() || $request->user()) {
+        if (($hasSanctumGuard && auth('sanctum')->check()) || $request->user()) {
             return $next($request);
         }
 
@@ -25,7 +27,6 @@ class UserTokenValid
             $userId = str_replace('valid-', '', $token);
             $user = \App\Domains\Auth\User\User::find($userId);
             if ($user) {
-                auth()->login($user);
                 $request->setUserResolver(fn () => $user);
                 return $next($request);
             }

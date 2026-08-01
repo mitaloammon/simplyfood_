@@ -13,14 +13,16 @@ class StoreOrderRequest extends FormRequest
 
     public function rules(): array
     {
+        $isUpdate = in_array($this->method(), ['PUT', 'PATCH'], true);
+
         return [
-            'customer_id' => 'required|integer|exists:customers,id',
-            'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|integer|exists:products,id',
-            'items.*.quantity' => 'required|integer|min:1',
-            'items.*.price' => 'required|numeric|min:0',
+            'customer_id' => $isUpdate ? 'sometimes|integer|exists:customers,id' : 'required|integer|exists:customers,id',
+            'items' => $isUpdate ? 'sometimes|array|min:1' : 'required|array|min:1',
+            'items.*.product_id' => 'required_with:items|integer|exists:products,id',
+            'items.*.quantity' => 'required_with:items|integer|min:1',
+            'items.*.price' => 'required_with:items|numeric|min:0',
             'status' => 'nullable|string|max:50',
-            'total' => 'required|numeric|min:0'
+            'total' => 'nullable|numeric|min:0'
         ];
     }
 }

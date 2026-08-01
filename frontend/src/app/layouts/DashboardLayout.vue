@@ -22,13 +22,15 @@ const handleLogout = () => {
 
       <nav class="nav-menu">
         <router-link to="/dashboard" class="nav-item" active-class="active">
-          <span class="nav-icon">√</span>
           <span class="nav-label">Dashboard</span>
         </router-link>
 
         <router-link to="/customers" class="nav-item" active-class="active">
-          <span class="nav-icon">✎</span>
           <span class="nav-label">Clientes</span>
+        </router-link>
+
+        <router-link to="/orders" class="nav-item" active-class="active">
+          <span class="nav-label">Pedidos</span>
         </router-link>
       </nav>
 
@@ -38,7 +40,6 @@ const handleLogout = () => {
           <p class="user-role">{{ authStore.user?.role || 'OPERATOR' }}</p>
         </div>
         <button class="btn-logout" @click="handleLogout">
-          <span class="logout-icon">X</span>
           Sair
         </button>
       </div>
@@ -82,6 +83,7 @@ const handleLogout = () => {
 
 .sidebar-logo span {
   background: linear-gradient(135deg, #ff416c 0%, #ff4b2b 100%);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
