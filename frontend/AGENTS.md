@@ -245,6 +245,24 @@ A validação local deve ocorrer antes do envio do payload para API.
 - Dependências: Zod, Axios, mapper de domínio
 - Responsabilidades: consistência do payload e feedback visual
 
+##### Atualização incremental - Menu Clientes em modo List
+- Objetivo: no menu `/customers`, exibir exclusivamente lista de clientes do ambiente autenticado.
+- Mudanças de fluxo:
+  - `CustomerPage.vue` refatorada para listagem com filtros (`nome`, `whatsapp`, `cidade`).
+  - ações por item: editar/atualizar e excluir.
+  - consumo de API protegido: `GET /api/customers`, `PUT /api/customers/{id}`, `DELETE /api/customers/{id}`.
+- Camada de integração atualizada:
+  - `CustomerApi` recebeu métodos `getAll`, `update`, `delete` e tipagem `CustomerDto`.
+- Comportamento preservado:
+  - contratos existentes de autenticação e cliente HTTP (`apiClient`) mantidos.
+  - sem alteração de identidade visual global, apenas adaptação da página para gestão em lista.
+
+##### Atualização incremental - Auditoria Service Layer (Backend Customer)
+- Contexto: camada backend Customer foi alinhada ao contrato `BaseService::post(...)`.
+- Impacto no frontend: nenhum ajuste funcional necessário.
+- Contratos preservados: `POST /api/customers` e `GET /api/customers?whatsapp={value}` sem mudança de payload/response.
+- Resultado: `CreateCustomerService` e `CustomerApi` permanecem compatíveis.
+
 #### Feature FEAT-FE-003 - Dashboard
 <!--
 Feature responsável pela visão inicial pós-login.
@@ -252,21 +270,140 @@ No estado atual os indicadores são locais e servem como baseline visual.
 -->
 - Objetivo: exibir visão consolidada para acesso rápido
 - Escopo: cards de métricas e atalhos de navegação
-- Fluxo: DashboardPage -> estado local de métricas -> render
+- Fluxo: DashboardPage -> useDashboardMetrics -> GetDashboardMetricsService -> DashboardApi -> /api/dashboard/metrics
 - Componentes envolvidos: DashboardPage.vue, DashboardLayout.vue
-- Services: N/A no fluxo atual
+- Services: GetDashboardMetricsService
 - Controllers: N/A (frontend)
-- Requests: N/A no fluxo atual
-- Models: UserState (exibição de nome/role)
+- Requests: GET /api/dashboard/metrics
+- Models: UserState (fallback de nome/role), DashboardMetric, DashboardPayload
 - Repositories: N/A (frontend)
-- Interfaces: N/A específica
+- Interfaces: DashboardMetric, DashboardPayload, DashboardMetricsResponse, DashboardUserSummary
 - Rotas relacionadas: /dashboard
-- Dependências: auth store
-- Responsabilidades: experiência de entrada e roteamento de ações rápidas
+- Dependências: auth store, apiClient (axios)
+- Responsabilidades: carregar métricas reais com loading, erro e atualização reativa
+
+#### Feature FEAT-FE-004 - Orders Management
+<!--
+Feature responsável pelo gerenciamento de pedidos no ambiente autenticado.
+Inclui criação, edição, exclusão, detalhamento e listagem com totais reativos.
+-->
+- Objetivo: operacionalizar o ciclo de pedidos do usuário autenticado
+- Escopo: list, create, update, delete, details, filtros por status/cliente
+- Fluxo: OrderPage -> OrderApi -> apiClient -> /api/orders*
+- Componentes envolvidos: OrderPage.vue
+- Services: OrderApi
+- Controllers: N/A (frontend)
+- Requests: payload OrderPayload (customer_id, status, items, total)
+- Models: OrderDto, OrderItemDto, OrderItemInput
+- Repositories: N/A (frontend)
+- Interfaces: OrderPayload, OrderDto, OrderItemDto
+- Rotas relacionadas: /orders
+- Dependências: CustomerApi (seleção de clientes), apiClient, Vue Router
+- Responsabilidades: manter consistência visual e funcional de pedidos com feedback de loading/erro/sucesso
+
+##### Atualização incremental - Navegação e integração
+- Router atualizado: `src/app/router/index.ts` com rota protegida `/orders`.
+- Menu lateral atualizado: `DashboardLayout.vue` com entrada "Pedidos".
+- Dashboard atualizado: ação rápida para gestão de pedidos.
+
+##### Atualização incremental - Reorganização Dashboard x Módulos
+<!--
+Refatoração de experiência para separar atalho de criação (Dashboard) e gestão completa (módulos).
+Sem alteração de contrato HTTP e sem alteração de autenticação existente.
+-->
+- Dashboard simplificado em `DashboardPage.vue`:
+  - seção "Ações Rápidas" agora expõe somente `Novo Cliente` e `Novo Pedido`.
+  - atalhos navegam com query `action=create` para iniciar fluxo de cadastro, sem assumir listagem, filtros, edição ou exclusão.
+- Customers centralizado em `CustomerPage.vue`:
+  - gerenciamento completo no módulo: cadastro, listagem, pesquisa/filtros, visualização, edição e exclusão.
+  - componente reutilizado: `CustomerForm.vue` para criação.
+  - service reutilizado: `CreateCustomerService` para regra de criação e validação de whatsapp.
+- Orders centralizado em `OrderPage.vue`:
+  - mantém gestão completa no módulo (create/list/filter/detail/update/delete).
+  - suporte a início de cadastro por atalho do Dashboard via `action=create`.
+- Resultado arquitetural:
+  - Dashboard permanece orientado a indicadores, métricas e atalhos rápidos.
+  - módulos permanecem responsáveis por manutenção e operações de negócio.
+
+##### Atualização incremental - Fluxo de criação direta sem listagem
+<!--
+Aprimoramento de navegação para impedir que atalhos do Dashboard caiam em listagens durante criação.
+Mantém gerenciamento completo apenas nos módulos laterais.
+-->
+- Dashboard:
+  - `Novo Cliente` -> `/customers?action=create`
+  - `Novo Pedido` -> `/orders?action=create`
+- Customers (`CustomerPage.vue`):
+  - quando `action=create`, exibe apenas fluxo de cadastro (formulário) e oculta filtros/lista/edição/detalhes.
+  - criação reutiliza `CustomerForm` + `CreateCustomerService`.
+  - opção explícita para voltar ao gerenciamento completo pelo menu/contexto.
+- Orders (`OrderPage.vue`):
+  - quando `action=create`, exibe diretamente formulário manual de pedido e oculta listagem/filtros/detalhes.
+  - mantém associação de pedido a customer dentro do próprio módulo Orders.
+  - opção explícita para voltar ao gerenciamento completo.
+- Compatibilidade:
+  - sem mudanças de contrato API; fluxo de autenticação (`apiClient` + token) preservado.
+
+##### Atualização incremental - Pós-criação com retorno automático ao gerenciamento
+<!--
+Melhoria de UX no quick-create para fechar o ciclo sem ambiguidade de navegação.
+-->
+- Após sucesso no quick-create iniciado pelo Dashboard:
+  - Customers redireciona automaticamente para `/customers?highlight={id}`.
+  - Orders redireciona automaticamente para `/orders?highlight={id}`.
+- Destaque visual do registro criado aplicado na listagem do módulo de gerenciamento.
+- No fluxo rápido, o registro criado também é aberto em contexto (detalhe selecionado quando aplicável).
+
+##### Atualização incremental - Cadastro manual de Produto no fluxo Novo Pedido
+<!--
+Evolução orientada a operação: permitir criação de produto quando o seletor de itens estiver vazio.
+Mantém separação entre criação rápida (Dashboard -> Novo Pedido) e gestão completa no módulo Pedidos.
+-->
+- No formulário de pedido (`OrderPage.vue`), seção Itens do Pedido recebeu ação `Cadastrar Produto`.
+- Fluxo adicionado:
+  - cadastro manual de produto (nome, preço e descrição opcional);
+  - persistência via endpoint protegido de produtos;
+  - recarga automática da lista de produtos ativos;
+  - seleção automática do produto recém-criado no item atual do pedido.
+- Camada reutilizada:
+  - cliente HTTP autenticado (`apiClient`);
+  - nova API de produto no frontend: `src/modules/products/api/ProductApi.ts`.
+- Responsabilidade preservada:
+  - Dashboard continua apenas iniciando criação rápida;
+  - gerenciamento completo do pedido e associações permanece em `/orders`.
+
+##### Atualização incremental - Auditoria de conformidade (UX e consistência visual)
+<!--
+Hardening aplicado após auditoria SDD para restaurar comportamentos especificados sem alterar contratos HTTP.
+-->
+- `DashboardPage.vue` alinhado com o seletor CSS correto (`.dashboard-container`) para garantir aplicação de layout e animação.
+- `CustomerPage.vue` com restauração do filtro visual de `whatsapp`, mantendo consistência entre estado de filtro e interface.
+- `OrderPage.vue` com restauração do gatilho visível `Cadastrar Produto` na seção de itens durante o fluxo `action=create`.
+- `DashboardLayout.vue` atualizado com `background-clip: text` para compatibilidade cross-browser no logotipo.
+- Resultado arquitetural: correções restritas à camada de apresentação, preservando Services, Stores, composables e contratos de API.
+
+##### Atualização incremental - Performance de leitura (impacto percebido)
+<!--
+Otimizações aplicadas no backend por indexação e ajuste de predicados temporais.
+Sem necessidade de alteração no consumo da API pelo frontend.
+-->
+- Impacto esperado em UX:
+  - carregamento mais responsivo das métricas do Dashboard em consultas por dia.
+  - melhor tempo de resposta em listagens de Pedidos com filtros por status/cliente.
+  - lookup de clientes por whatsapp mais eficiente em fluxos de cadastro.
+  - listagem de produtos ativos mais consistente em bases maiores.
+- Compatibilidade frontend:
+  - nenhum contrato HTTP alterado;
+  - nenhuma mudança obrigatória em componentes/composables/services de consumo.
+
+##### Atualização incremental - Totais reativos no formulário
+- O total do pedido é recalculado em tempo real a partir de `quantity * price` por item.
+- O subtotal e a quantidade total de itens são atualizados em cada adição/remoção/edição.
+- Mudança de produto preenche preço automaticamente com base em `/api/products`.
 
 #### Features catalogadas e parcialmente conectadas
 - products, orders, categories, deliveries, financial, payments, tickets, users, settings
-- Observação: os diretórios existem em src/modules, porém as rotas ativas no router atual concentram-se em auth, dashboard e customers.
+- Observação: o router ativo já contempla auth, dashboard, customers e orders.
 
 ### Comentário de arquitetura
 <!--
@@ -305,6 +442,13 @@ A lógica de fluxo deve permanecer em services, stores e composables, de forma p
 | /api/register | POST | AuthService | FEAT-FE-001 | Ativo |
 | /api/customers | POST | CreateCustomerService/CustomerApi | FEAT-FE-002 | Ativo |
 | /api/customers?whatsapp={value} | GET | CreateCustomerService/CustomerApi | FEAT-FE-002 | Ativo |
+| /api/dashboard/metrics | GET | GetDashboardMetricsService/DashboardApi | FEAT-FE-003 | Ativo |
+| /api/orders | GET | OrderApi | FEAT-FE-004 | Ativo |
+| /api/orders | POST | OrderApi | FEAT-FE-004 | Ativo |
+| /api/orders/{id} | PUT/PATCH | OrderApi | FEAT-FE-004 | Ativo |
+| /api/orders/{id} | DELETE | OrderApi | FEAT-FE-004 | Ativo |
+| /api/products/active | GET | ProductApi | FEAT-FE-004 | Ativo |
+| /api/products | POST | ProductApi | FEAT-FE-004 | Ativo |
 
 ### Contratos disponíveis no backend (referência)
 <!--
@@ -313,6 +457,7 @@ mas nem todos estão conectados na navegação atual.
 -->
 - /api/auth/login (POST)
 - /api/auth/register (POST)
+- /api/dashboard/metrics (GET)
 - /api/products/*
 - /api/orders/*
 
@@ -556,7 +701,7 @@ Domain mantém estruturas sem dependência de UI.
 | --- | --- | --- | --- | --- |
 | F01 | FEAT-FE-001 Authentication | /auth/login, guard do router | /api/login, /api/register | UserState |
 | F02 | FEAT-FE-002 Customers | /customers | /api/customers (POST/GET query) | CreateCustomerDto, CustomerEntity, AddressValueObject |
-| F02 | FEAT-FE-003 Dashboard | /dashboard | N/A (estado local atual) | UserState |
+| F02 | FEAT-FE-003 Dashboard | /dashboard | /api/dashboard/metrics (GET) | UserState, DashboardMetric, DashboardPayload |
 
 ### Observação de consistência
 <!--
@@ -632,4 +777,226 @@ defineProps({
 })
 </script>
 ```
+
+### Atualizacao incremental - Dashboard SPA via API
+<!--
+Integracao incremental aplicada sem remover o fluxo Inertia existente.
+No frontend modular (src/modules), o dashboard agora consome somente dados reais da API.
+-->
+- Fluxo consolidado: DashboardPage -> useDashboardMetrics -> GetDashboardMetricsService -> DashboardApi -> apiClient -> GET /api/dashboard/metrics
+- Componentes reutilizados: DashboardLayout.vue (sem alteracao de responsabilidade)
+- Composables adicionados: `src/modules/dashboard/composables/useDashboardMetrics.ts`
+- Services adicionados: `src/modules/dashboard/services/GetDashboardMetricsService.ts`
+- API adapter adicionado: `src/modules/dashboard/api/DashboardApi.ts`
+- Tipos adicionados: `src/modules/dashboard/types/DashboardMetrics.ts`
+- Estado de tela: `loading`, `errorMessage`, `metrics`, `user`
+- Tratamento de erro: fallback de mensagem + acao de retry (`loadMetrics`)
+- Estrategia de reutilizacao:
+  - reuso de `apiClient` para autenticacao via interceptor
+  - reuso de `auth store` como fallback de nome do usuario no cabecalho
+  - nenhuma regra de negocio no componente de pagina
+
+---
+
+## 20. Consolidacao SDD Incremental (Single Source of Truth)
+
+<!--
+Secao incremental adicionada para padronizar leitura por topicos obrigatorios sem remover conteudo historico.
+Referencia cruzada: secoes 2 a 19 deste documento.
+-->
+
+### 1. SPRINTS
+- Objetivo: rastrear evolucao funcional do frontend por entregas incrementais.
+- Responsabilidades: registrar status, dependencias e riscos de cada sprint.
+- Fluxo: backlog -> implementacao por feature -> validacao -> atualizacao de matriz SDD.
+- Dependencias: backend contracts, router protegido, auth store.
+- Observacoes tecnicas: manter rastreabilidade com secoes 2 e 15.
+
+### 2. FEATURES
+- Objetivo: mapear capacidades do frontend por feature layer.
+- Responsabilidades: delimitar escopo de UI, services, composables e stores.
+- Fluxo: rota -> pagina -> service/composable -> apiClient -> API.
+- Dependencias: Vue Router, Pinia, Axios, validadores.
+- Observacoes tecnicas: features ativas no ambiente SPA: Auth, Dashboard, Customers e Orders.
+
+### 3. ACCEPTANCE CRITERIA
+- Objetivo: garantir comportamento verificavel por feature.
+- Responsabilidades: definir criterios funcionais e de UX sem acoplamento ao backend interno.
+- Fluxo: Given/When/Then -> implementacao -> teste manual/automatizado.
+- Dependencias: testes Vitest, testes de integracao com API e validacoes locais.
+- Observacoes tecnicas: criterios devem refletir comportamento real de tela e nao apenas contrato teorico.
+
+### 4. API SPEC
+- Objetivo: consolidar endpoints efetivamente consumidos no frontend.
+- Responsabilidades: documentar metodo, objetivo e camada consumidora.
+- Fluxo: service -> adapter API -> endpoint protegido/publico.
+- Dependencias: headers de autenticacao no `apiClient` e middlewares backend.
+- Observacoes tecnicas: lista principal permanece na secao 6 e foi expandida para Orders/Products.
+
+### 5. DATA MODELS
+- Objetivo: explicitar modelos de UI e DTOs para consistencia de tipagem.
+- Responsabilidades: manter fronteira clara entre entidade de dominio e payload de API.
+- Fluxo: DTO de entrada -> service -> mapper -> entidade de frontend.
+- Dependencias: Zod, interfaces TypeScript e mappers compartilhados.
+- Observacoes tecnicas: evitar duplicacao entre `CustomerDto` e `CustomerEntity` quando responsabilidade divergir.
+
+### 6. STACK
+- Objetivo: manter inventario tecnologico real do frontend e camadas associadas.
+- Responsabilidades: registrar runtime e bibliotecas realmente ativas.
+- Fluxo: bootstrap (`main.ts`) -> router -> layouts/pages -> services.
+- Dependencias: Vue 3, Composition API, Vite, Pinia, Axios, Tailwind CSS.
+- Observacoes tecnicas: frontend SPA principal nao usa Inertia; Inertia existe no frontend acoplado ao backend (`backend/resources/js`).
+
+### 7. CODER AGENT ID
+- Objetivo: manter governanca de manutencao por papel de agente.
+- Responsabilidades: preservar escopo de alteracao, arquivos criticos e prioridade.
+- Fluxo: analise -> implementacao incremental -> documentacao -> validacao.
+- Dependencias: AGENTS frontend/backend, README raiz.
+- Observacoes tecnicas: IDs atuais permanecem `FRONTEND-AGENT` e `DOC-AGENT`.
+
+### 8. FILE STRUCTURE
+- Objetivo: formalizar estrutura atual por dominio funcional.
+- Responsabilidades: garantir localizacao previsivel de pages/components/services/stores.
+- Fluxo: `src/app` (bootstrap) -> `src/modules` (features) -> `src/shared` (reuso).
+- Dependencias: alias `@` em `vite.config.ts`.
+- Observacoes tecnicas: estrutura ativa permanece modular por feature.
+
+## 21. Ambientes de Negocio (Frontend)
+
+### Ambiente Administrativo
+- Objetivo: gestao completa e governanca de dados mestres.
+- Modulos atuais no frontend: `users`, `settings`, `categories`, `products`, `financial`, `payments`, `tickets` (status: planejado/parcial no roteamento principal).
+- Responsabilidades: configuracao, cadastros globais, relatorios e operacoes gerenciais.
+- Fluxo: login autenticado -> dashboard gerencial -> modulos administrativos.
+- Dependencias: autorizacao por role no backend (`ADMIN`, `MANAGER`).
+- Observacoes tecnicas: varios modulos estao catalogados em `src/modules`, mas nao todos expostos no router principal atual.
+
+### Ambiente Operacional
+- Objetivo: execucao diaria de atendimento e pedidos.
+- Modulos ativos no frontend: `dashboard`, `customers`, `orders`.
+- Responsabilidades: cadastro de cliente, abertura de pedido, acompanhamento de pedidos do usuario autenticado.
+- Fluxo: Dashboard -> acao rapida (`action=create`) -> modulo de gerenciamento.
+- Dependencias: `apiClient`, `auth store`, rotas protegidas.
+- Observacoes tecnicas: quick-create permanece separado de gerenciamento completo para reduzir friccao operacional.
+
+## 22. Camadas Complementares
+
+### Feature Layer
+- Objetivo: agrupar fluxo por dominio funcional.
+- Responsabilidades: coesao entre page, service, composable e tipos.
+- Fluxo: evento de UI -> comando de feature -> atualizacao de estado.
+- Dependencias: router, stores, adapters API.
+- Observacoes tecnicas: evitar logica de negocio complexa diretamente em componentes.
+
+### Architecture Decisions
+- Objetivo: registrar decisoes tecnicas que evitam regressao arquitetural.
+- Responsabilidades: justificar trade-offs de navegacao, acoplamento e contratos.
+- Fluxo: decisao -> impacto -> validacao -> documentacao.
+- Dependencias: AGENTS frontend/backend.
+- Observacoes tecnicas:
+  - dashboard orientado a atalhos/metricas;
+  - gerenciamento completo concentrado em modulos;
+  - consumo HTTP centralizado no `apiClient`.
+
+### Security Layer
+- Objetivo: proteger sessao, navegacao e chamadas autenticadas.
+- Responsabilidades: guardar token, injetar bearer token, bloquear rota sem sessao.
+- Fluxo: login -> persistencia local -> guard do router -> interceptor Axios.
+- Dependencias: Pinia auth store, router `meta.requiresAuth`.
+- Observacoes tecnicas: logout limpa storage e evita persistencia indevida de credenciais.
+
+### Exception Layer
+- Objetivo: padronizar tratamento de erro na experiencia do usuario.
+- Responsabilidades: mapear erros Axios, exibir mensagens previsiveis e fallback seguro.
+- Fluxo: falha na API -> captura no service/page -> mensagem amigavel -> opcao de retry.
+- Dependencias: Axios error shape, padrao de resposta backend.
+- Observacoes tecnicas: evitar expor detalhes internos de stack trace na UI.
+
+### Validation Layer
+- Objetivo: garantir integridade de entrada antes de enviar para API.
+- Responsabilidades: validacao de formularios e normalizacao de dados.
+- Fluxo: input -> schema local -> DTO -> request.
+- Dependencias: Zod e validadores por feature.
+- Observacoes tecnicas: validacao local nao substitui validacao backend.
+
+### Event Layer
+- Objetivo: preparar fronteira para reatividade em tempo real sem quebrar arquitetura atual.
+- Responsabilidades: definir pontos de extensao para eventos de pedidos e dashboard.
+- Fluxo planejado: evento backend -> canal realtime -> atualizacao de store/composable.
+- Dependencias: backend broadcasting/reverb (planejado).
+- Observacoes tecnicas: no estado atual, polling/manual refresh permanece estrategia ativa.
+
+### Queue Layer
+- Objetivo: documentar dependencia de processamento assincrono no backend e impacto na UI.
+- Responsabilidades: refletir estados de processamento (pendente, concluido, falha) quando aplicavel.
+- Fluxo: acao usuario -> API -> job/queue backend -> retorno consolidado.
+- Dependencias: contratos de status da API.
+- Observacoes tecnicas: ainda sem tela dedicada de monitoramento de fila no SPA principal.
+
+### Documentation Layer
+- Objetivo: manter AGENTS e README sincronizados com implementacao real.
+- Responsabilidades: registrar alteracoes incrementais e decisoes arquiteturais.
+- Fluxo: mudanca tecnica -> validacao -> atualizacao documental.
+- Dependencias: docs de backend e infraestrutura.
+- Observacoes tecnicas: nao remover historico; complementar com secoes incrementais.
+
+### Integration Layer
+- Objetivo: isolar comunicacao com backend e evitar acoplamento entre views e endpoints.
+- Responsabilidades: concentrar chamadas em adapters (`AuthApi`, `CustomerApi`, `OrderApi`, `ProductApi`, `DashboardApi`).
+- Fluxo: page/composable -> service -> api adapter -> `apiClient`.
+- Dependencias: Axios, baseURL por ambiente.
+- Observacoes tecnicas: padronizar payload/response evita regressao entre modulos.
+
+### Testing Layer
+- Objetivo: validar comportamento de services, stores e fluxo de tela.
+- Responsabilidades: cobrir cenarios felizes e de erro.
+- Fluxo: teste unitario/integracao -> assert de contrato -> manutencao de regressao.
+- Dependencias: Vitest, mocks de API.
+- Observacoes tecnicas: ampliar cobertura para quick-create e highlight em roadmap.
+
+### Future Roadmap
+- Objetivo: registrar evolucoes sem prometer implementacoes inexistentes.
+- Responsabilidades: diferenciar estado ativo de estado planejado.
+- Fluxo: descoberta -> priorizacao -> sprint futura.
+- Dependencias: capacidade de backend e alinhamento de produto.
+- Observacoes tecnicas: modulos administrativos avancados permanecem `Planejado` ate publicacao no router principal.
+
+## 23. Qualidade de Software (Frontend)
+
+- SOLID: services pequenos e com responsabilidade unica por fluxo de integracao.
+- Clean Code: nomes orientados a dominio e funcoes focadas por acao.
+- Separation of Concerns: pages tratam UX; services tratam integracao; stores tratam estado global.
+- Low Coupling: componentes desacoplados de endpoints diretos.
+- High Cohesion: cada modulo organiza seus tipos, API e regras de apresentacao.
+- Dependency Inversion: pages dependem de contratos de service/adapters, nao de implementacao HTTP crua.
+- DTO/Resources/Requests: DTOs tipados no frontend e compativeis com Requests/Resources backend.
+
+## 24. Roadmap Tecnico (Sprints Futuras)
+
+### Sprint F03 - Operacao em Tempo Real (Planejado)
+- Objetivo: preparar atualizacao reativa de pedidos e dashboard.
+- Features: assinaturas de eventos de pedido/KDS e refresh seletivo de metricas.
+- Criterios de aceite: atualizacao de status sem reload manual e fallback resiliente.
+- Impacto arquitetural: extensao de composables e stores para eventos.
+- Dependencias: backend com broadcasting/reverb ativo.
+- Estimativa tecnica: media.
+- Riscos: sincronizacao de estado e ordem de eventos.
+
+### Sprint F04 - Consolidaçao Administrativa (Planejado)
+- Objetivo: expor modulos administrativos catalogados no router principal.
+- Features: categories, products avançado, users/settings, financial/payments.
+- Criterios de aceite: permissao por role e navegacao consistente.
+- Impacto arquitetural: ampliacao controlada de rotas e layout.
+- Dependencias: contratos backend estaveis e politicas de autorizacao.
+- Estimativa tecnica: alta.
+- Riscos: acoplamento indevido entre ambiente operacional e administrativo.
+
+### Sprint F05 - Qualidade e Testabilidade (Planejado)
+- Objetivo: aumentar cobertura automatizada do frontend.
+- Features: testes de regressao para quick-create, filtros e fluxos de erro.
+- Criterios de aceite: suites verdes para cenarios criticos de operacao.
+- Impacto arquitetural: padronizacao de mocks e fixtures por feature.
+- Dependencias: estabilidade dos contratos de API.
+- Estimativa tecnica: media.
+- Riscos: flakes em testes de interface sem isolamento adequado.
 

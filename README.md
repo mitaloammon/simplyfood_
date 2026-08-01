@@ -1,73 +1,193 @@
-# Simplify Food
+# SimplyFood
 
-Sistema web corporativo para gerenciamento operacional, financeiro e logístico de lanchonetes, hamburguerias, pizzarias, cafeterias e restaurantes.
+Sistema de gestao para operacao de food service com foco em atendimento, pedidos, clientes, produtos e observabilidade operacional.
 
----
+> Fonte oficial de especificacao tecnica: [backend/AGENTS.md](backend/AGENTS.md) e [frontend/AGENTS.md](frontend/AGENTS.md).
 
-> [!IMPORTANT]
-> **Atenção agentes de IA e desenvolvedores:**
-> As regras principais de arquitetura, camada de aplicação, estrutura de pastas e convenções do projeto estão consolidadas em [backend/AGENTS.md](backend/AGENTS.md) e [frontend/AGENTS.md](frontend/AGENTS.md). Consulte esses arquivos antes de alterar qualquer parte do sistema.
+## Visao Geral
 
----
+O projeto e composto por:
+- [backend](backend): API Laravel com Service Layer, Repository Pattern e modulos por dominio.
+- [frontend](frontend): SPA Vue 3 + TypeScript organizada por Feature Layer.
+- [infrastructure](infrastructure): Dockerfile e configuracao Nginx.
+- [docker-compose.yml](docker-compose.yml): orquestracao local de app, web, mysql, redis e node.
 
-## Visão Geral
+Escopo funcional atual:
+- autenticacao e autorizacao por middleware e role
+- clientes por escopo de usuario autenticado
+- pedidos por escopo de usuario autenticado
+- produtos ativos e criacao de produtos
+- metricas de dashboard por usuario autenticado
 
-O Simplify Food centraliza, em tempo real, as operações de:
-- gestão de clientes e endereços
-- gestão de pedidos e fluxo operacional
-- catálogo de produtos e categorias
-- financeiro, faturamento e fluxo de caixa
-- integração com WhatsApp Business
-- logística e entregas
+## Arquitetura
 
-A aplicação é composta por:
-- [backend](backend): API em Laravel 12 com arquitetura limpa
-- [frontend](frontend): interface em Vue 3 + TypeScript
-- [infrastructure](infrastructure): configuração Docker e Nginx
+### Visao de camadas
 
----
+- Presentation Layer: rotas, controllers, requests/resources e pages/components.
+- Application Layer: services e casos de uso.
+- Domain Layer: entidades e regras centrais.
+- Infrastructure Layer: repositories e integracoes.
+- Persistence Layer: migrations, indices e constraints.
+
+### Ambientes de negocio
+
+- Ambiente Administrativo: governanca de cadastros e monitoramento gerencial (ativo parcial, com modulos planejados).
+- Ambiente Operacional: dashboard operacional, criacao de clientes, abertura e gestao de pedidos proprios (ativo).
+
+## Tecnologias
+
+### Backend
+- Laravel 12
+- PHP ^8.2
+- REST API
+- Inertia Laravel v3 (fluxo web /dashboard)
+- Redis (cache/queue support)
+
+### Frontend
+- Vue 3
+- Composition API
+- TypeScript
+- Vite
+- Pinia
+- Vue Router
+- Tailwind CSS
+
+### Banco
+- MySQL 8.4
+
+### Infraestrutura
+- Docker
+- Docker Compose
+- Nginx
+
+### Qualidade
+- Pest / PHPUnit (backend)
+- Vitest (frontend)
 
 ## Requisitos
 
-Antes de iniciar, certifique-se de ter instalado:
-- Docker Desktop ou Docker Engine + Docker Compose v2
-- Node.js 20+
-- PHP 8.2+ e Composer (apenas se for executar o backend fora do container)
+- Docker Engine/Desktop 24+
+- Docker Compose v2
+- Node.js 20+ (quando executar frontend fora do container)
+- PHP 8.2+ e Composer (quando executar backend fora do container)
 
----
+## Instalacao
 
-## Execução local recomendada com Docker
-
-O fluxo mais simples e alinhado com a estrutura atual do projeto é usar Docker Compose.
-
-### 1) Clone o repositório
+### 1. Clonar repositorio
 
 ```bash
 git clone https://github.com/mitaloammon/simplyfood_
 cd simplyfood
 ```
 
-### 2) Configure o ambiente do backend
+### 2. Preparar variaveis de ambiente do backend
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-No Windows PowerShell:
+PowerShell:
 
 ```powershell
 Copy-Item backend/.env.example backend/.env
 ```
 
-> O arquivo de ambiente já é consumido pela stack Docker definida em [docker-compose.yml](docker-compose.yml).
+## Docker
 
-### 3) Suba a stack local
+### Subir stack completa
 
 ```bash
 docker compose up --build -d
 ```
 
-### 4) Instale dependências do backend e prepare o banco
+### Parar stack
+
+```bash
+docker compose down
+```
+
+### Reiniciar stack
+
+```bash
+docker compose restart
+```
+
+### Ver status
+
+```bash
+docker compose ps
+```
+
+## Variaveis de Ambiente
+
+Principais variaveis usadas no compose:
+
+- APP_URL (padrao: http://localhost:8080)
+- DB_HOST (padrao: mysql)
+- DB_DATABASE (padrao: simplyfood)
+- DB_USERNAME (padrao: simplyfood)
+- DB_PASSWORD (padrao: simplyfood)
+- REDIS_HOST (padrao: redis)
+- REDIS_PORT (padrao: 6379)
+
+Variaveis frontend relevantes:
+- VITE_API_URL (SPA frontend)
+- VITE_API_BASE_URL (container node no build)
+
+## Containers
+
+Servicos definidos em [docker-compose.yml](docker-compose.yml):
+
+- app: PHP-FPM Laravel
+- web: Nginx (porta 8080)
+- mysql: MySQL 8.4 (porta 3307 host)
+- redis: Redis 7 (porta 6380 host)
+- node: build do frontend
+
+## Banco de Dados
+
+Modelo atual inclui:
+- users
+- customers
+- addresses
+- categories
+- products
+- orders
+- order_items
+- deliveries
+- payment_transactions
+- tickets
+- whatsapp_messages
+- tabelas de infraestrutura (jobs/cache/sessions)
+
+## Migracoes
+
+Executar migracoes:
+
+```bash
+docker compose exec app php artisan migrate
+```
+
+Migracoes relevantes de escopo/performance ja aplicadas:
+- user_id em customers
+- user_id em orders
+- indices para dashboard e listagens operacionais
+
+## Seeders
+
+```bash
+docker compose exec app php artisan db:seed
+```
+
+Ou migrar com seed:
+
+```bash
+docker compose exec app php artisan migrate --seed
+```
+
+## Executando Backend
+
+### Via Docker (recomendado)
 
 ```bash
 docker compose run --rm app composer install
@@ -75,65 +195,27 @@ docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate --seed
 ```
 
-### 5) Acesse a aplicação
+API disponivel em:
+- http://localhost:8080/api
+- health: http://localhost:8080/api/health
 
-- Frontend e API: http://localhost:8080
-- Health check da API: http://localhost:8080/api/health
-
----
-
-## Comandos úteis do dia a dia
-
-### Subir e parar a stack
+### Fora do container (opcional)
 
 ```bash
-# subir
-docker compose up -d
-
-# parar
-docker compose down
-
-# reiniciar
-docker compose restart
+cd backend
+composer install
+php artisan key:generate
+php artisan migrate
+php artisan serve
 ```
 
-### Verificar status dos containers
+## Executando Frontend
 
-```bash
-docker compose ps
-```
+### Via stack Docker
 
-### Visualizar logs
+O container `node` gera build de producao consumido pelo Nginx.
 
-```bash
-# logs gerais
-docker compose logs -f
-
-# logs do backend
-docker compose logs -f app
-```
-
-### Executar comandos Artisan
-
-```bash
-docker compose exec app php artisan cache:clear
-docker compose exec app php artisan migrate
-docker compose exec app php artisan db:seed
-docker compose exec app php artisan test
-```
-
-### Executar comandos Composer
-
-```bash
-docker compose run --rm app composer install
-docker compose run --rm app composer dump-autoload
-```
-
----
-
-## Execução local do frontend sem Docker
-
-Se você quiser trabalhar no frontend diretamente localmente, use:
+### Desenvolvimento local (Vite)
 
 ```bash
 cd frontend
@@ -141,33 +223,127 @@ npm install
 npm run dev
 ```
 
-A aplicação ficará disponível em:
+URL padrao:
 - http://localhost:5173
 
-> Para isso, o backend precisa continuar rodando via Docker em http://localhost:8080.
+## Estrutura do Projeto
 
----
-
-## Testes
-
-### Backend
-
-```bash
-cd backend
-vendor/bin/pest
+```text
+simplyfood/
+	backend/
+	frontend/
+	infrastructure/
+	docker-compose.yml
+	README.md
 ```
 
-### Frontend
+## Arquitetura
+
+### Principios adotados
+
+- Spec-Driven Development (SDD)
+- Clean Architecture
+- SOLID
+- Service Layer
+- Repository Pattern
+- Feature Layer
+- Dependency Injection
+
+### Regras de evolucao
+
+- manter contratos API estaveis
+- evitar logica de negocio em controllers/pages
+- documentar alteracoes incrementalmente nos AGENTS
+
+## Fluxo Git
+
+Fluxo recomendado:
+
+1. criar branch por feature/fix
+2. implementar mudanca incremental
+3. validar testes/build
+4. atualizar documentacao
+5. abrir PR para revisao
+
+## Branches
+
+Modelo sugerido:
+- main: producao
+- develop: integracao
+- feature/*: novas funcionalidades
+- fix/*: correcoes
+- chore/*: manutencao tecnica
+
+## Convencao de Commits
+
+Padrao recomendado:
+
+- feat: nova funcionalidade
+- fix: correcao de bug
+- refactor: refatoracao sem mudanca funcional
+- docs: atualizacao documental
+- test: ajustes de testes
+- chore: manutencao/infra
+
+## Roadmap
+
+Curto prazo:
+- consolidar cobertura de testes de auth e orders
+- estabilizar governanca documental entre frontend/backend
+
+Medio prazo:
+- evoluir realtime/event-driven (Reverb/WebSockets)
+- ampliar modulos administrativos planejados
+
+Longo prazo:
+- caixa completo, KDS e relatorios gerenciais avancados
+
+## Contribuicao
+
+Antes de contribuir:
+
+1. ler [backend/AGENTS.md](backend/AGENTS.md)
+2. ler [frontend/AGENTS.md](frontend/AGENTS.md)
+3. confirmar compatibilidade com arquitetura e contratos
+4. incluir validacao (testes/build) e atualizacao documental
+
+## FAQ
+
+### Posso alterar contratos da API livremente?
+Nao. Mudancas de contrato exigem justificativa tecnica e compatibilidade controlada.
+
+### O projeto usa apenas SPA frontend?
+Nao. A interface principal usa SPA em [frontend](frontend), e existe fluxo Inertia no backend para `/dashboard`.
+
+### Quais modulos estao totalmente ativos no fluxo principal?
+Auth, Dashboard, Customers e Orders.
+
+## Troubleshooting
+
+### Erro ao subir containers
 
 ```bash
-cd frontend
-npm run test
+docker compose down
+docker compose up --build -d
+docker compose ps
 ```
 
----
+### Erro de permissao em storage/cache
 
-## Observações
+```bash
+docker compose exec app chown -R www-data:www-data /var/www/backend/storage /var/www/backend/bootstrap/cache
+```
 
-- Esta README centraliza os passos de execução local e uso diário do projeto.
-- Informações específicas de infraestrutura mais detalhadas foram consolidadas em [DOCKER.md](DOCKER.md) e [HOW_TO_USE.md](HOW_TO_USE.md), mas o fluxo principal de execução deve seguir este documento.
-- Novas features devem respeitar as diretrizes definidas em [backend/AGENTS.md](backend/AGENTS.md) e [frontend/AGENTS.md](frontend/AGENTS.md).
+### Erro de conexao com MySQL
+
+- validar se `mysql` esta healthy
+- revisar DB_HOST, DB_DATABASE, DB_USERNAME, DB_PASSWORD em `backend/.env`
+
+### Frontend nao consome API local
+
+- verificar valor de `VITE_API_URL`
+- validar se API esta acessivel em `http://localhost:8080/api/health`
+
+## Licenca
+
+Uso interno do projeto SimplyFood. Ajustar licenciamento oficial conforme politica do repositorio.

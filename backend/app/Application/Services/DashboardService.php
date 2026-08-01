@@ -13,18 +13,22 @@ class DashboardService
     public function buildUserDashboard(User $user): array
     {
         $today = Carbon::today();
+        $dayStart = $today->copy()->startOfDay();
+        $dayEnd = $today->copy()->endOfDay();
 
-        $customersCount = Customer::query()->count();
+        $customersCount = Customer::query()->where('user_id', $user->id)->count();
 
         $ordersTodayCount = Order::query()
-            ->whereDate('created_at', $today)
+            ->where('user_id', $user->id)
+            ->whereBetween('created_at', [$dayStart, $dayEnd])
             ->count();
 
         $revenueToday = (float) Order::query()
-            ->whereDate('created_at', $today)
+            ->where('user_id', $user->id)
+            ->whereBetween('created_at', [$dayStart, $dayEnd])
             ->sum('total');
 
-        $avgDeliveryMinutes = $this->calculateAverageDeliveryMinutes($today);
+        $avgDeliveryMinutes = $this->calculateAverageDeliveryMinutes($dayStart, $dayEnd, $user->id);
 
         return [
             'user' => [
@@ -65,11 +69,14 @@ class DashboardService
         ];
     }
 
-    private function calculateAverageDeliveryMinutes(Carbon $today): int
+    private function calculateAverageDeliveryMinutes(Carbon $dayStart, Carbon $dayEnd, int $userId): int
     {
         $deliveries = Delivery::query()
             ->select(['created_at', 'delivered_at'])
-            ->whereDate('delivered_at', $today)
+            ->whereHas('order', function ($query) use ($userId): void {
+                $query->where('user_id', $userId);
+            })
+            ->whereBetween('delivered_at', [$dayStart, $dayEnd])
             ->whereNotNull('delivered_at')
             ->get();
 

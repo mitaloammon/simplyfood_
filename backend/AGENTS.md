@@ -309,6 +309,30 @@ Regras de negócio permanecem em CustomerService.
 - Dependências: middleware token.valid e auth.system
 - Responsabilidades: persistência de cliente e resposta padronizada
 
+##### Atualização incremental - Escopo por usuário no ambiente autenticado
+- Objetivo: garantir que o menu Clientes opere sobre registros associados ao usuário autenticado.
+- Alterações arquiteturais:
+  - migration adicionada: `database/migrations/2026_07_31_000011_add_user_id_to_customers_table.php`.
+  - model atualizado: `Customer` com `user_id` no fillable e relacionamento `belongsTo(User)`.
+  - service atualizado: `CustomerService` com métodos `getByUser`, `findByUserOrFail`, `updateByUser`, `deleteByUser`.
+  - repository atualizado: consultas e mutações com escopo por `user_id`.
+  - controller atualizado: `get/show/update/deleted` usam escopo por usuário quando autenticado.
+- Fluxo protegido atualizado: `GET|PUT|PATCH|DELETE /api/customers*` retorna/altera/exclui apenas clientes do usuário autenticado.
+- Fluxo público preservado: `POST /api/customers` continua disponível para cadastro sem exigir token.
+
+##### Atualização incremental de arquitetura (Service Layer Audit)
+<!--
+Auditoria realizada para alinhar Controller/Service ao contrato da BaseService sem alterar regras de negócio.
+-->
+- Problema identificado: `CustomerController::store` chamava `create()`, método fora do contrato comum de `BaseService`.
+- Causa raiz: divergência entre convenção base (`post`) e implementação específica de Customer (`create`).
+- Correção aplicada:
+  - `CustomerService` passou a sobrescrever `post(array $data)` (mantendo regras de whatsapp e ViaCEP).
+  - `CustomerController::store` passou a orquestrar criação via `service->post(...)`.
+  - Testes unitários de service ajustados para o contrato `post(...)`.
+- Decisão arquitetural: não adicionar `create()` em `BaseService` para evitar expansão indevida da API base e impacto nas demais features.
+- Compatibilidade: contrato HTTP da rota `POST /api/customers` preservado (payload e resposta sem breaking change).
+
 #### Feature FEAT-BE-004 - Product Management
 <!--
 Feature de catálogo com operações protegidas e filtro de ativos.
@@ -344,6 +368,127 @@ Feature operacional de pedidos com alteração de status e validação semântic
 - Rotas relacionadas: GET /api/orders, GET /api/orders/{id}, POST /api/orders, PUT/PATCH /api/orders/{id}, PATCH /api/orders/{id}/status, DELETE /api/orders/{id}
 - Dependências: clientes, produtos, autenticação e autorização
 - Responsabilidades: ciclo operacional do pedido e consistência de status
+
+##### Atualização incremental - Orders por usuário autenticado
+- Objetivo: garantir que cada pedido pertença a um usuário e que operações sejam isoladas por ambiente autenticado.
+- Alterações arquiteturais:
+  - migration adicionada: `database/migrations/2026_07_31_000012_add_user_id_to_orders_table.php`.
+  - model atualizado: `Order` com `user_id` no fillable e relacionamento `belongsTo(User)`.
+  - model atualizado: `User` com relacionamento `orders()`.
+  - service atualizado: `OrderService` com métodos `postByUser`, `getByUser`, `findByUserOrFail`, `updateByUser`, `deleteByUser`, `updateStatusByUser` e recálculo de total por itens.
+  - repository atualizado: `OrderRepository` com `getByUser` e `findByUser`.
+  - controller atualizado: `OrderController` passa a usar escopo por usuário em `get/show/post/update/deleted/changeStatus`.
+- Fluxo protegido atualizado:
+  - `GET /api/orders` retorna apenas pedidos do usuário autenticado.
+  - `GET /api/orders/{id}` bloqueia acesso a pedidos de outros usuários.
+  - `POST /api/orders` exige cliente pertencente ao usuário autenticado.
+  - `PUT/PATCH /api/orders/{id}` atualiza apenas pedidos do usuário autenticado.
+  - `DELETE /api/orders/{id}` remove apenas pedidos do usuário autenticado.
+
+##### Atualização incremental - Dashboard Pedidos Hoje por usuário
+- Contexto: métrica `orders_today` do dashboard agora respeita escopo do usuário autenticado.
+- Alteração: `DashboardService::buildUserDashboard` aplica filtro `where('user_id', $user->id)` na contagem diária de pedidos.
+- Complemento: faturamento diário e média de entrega também passam a considerar somente pedidos do usuário autenticado.
+- Benefício: cada operador visualiza métricas operacionais isoladas do próprio ambiente.
+
+##### Atualização incremental - Reorganização de UX (Dashboard x Módulos)
+<!--
+Mudança de experiência no frontend para separar ações rápidas e gestão completa.
+Backend mantido compatível e sem alteração de contratos de API.
+-->
+- Impacto na API: nenhum endpoint novo/removido; contratos HTTP preservados.
+- Autenticação/autorização: sem enfraquecimento de segurança.
+  - rotas protegidas continuam no grupo `token.valid` + `auth.system:ADMIN,MANAGER,OPERATOR`.
+  - criação pública de cliente (`POST /api/customers`) mantida conforme fluxo já existente.
+- Compatibilidade: módulos Customers e Orders continuam consumindo os mesmos endpoints protegidos para gestão completa.
+- Decisão arquitetural: reorganização restrita à camada de apresentação, preservando Services, regras de negócio e middlewares.
+
+##### Atualização incremental - Fluxo direto de criação (confirmação de impacto)
+<!--
+Refino de navegação do frontend para abrir criação direta de cliente/pedido a partir do Dashboard.
+Sem alterações de backend por se tratar de comportamento de apresentação e roteamento SPA.
+-->
+- Rotas backend: inalteradas.
+- Permissões e segurança: inalteradas (`token.valid` + `auth.system`).
+- Contratos Orders/Customers: inalterados (POST/GET/PUT/PATCH/DELETE mantidos).
+- Compatibilidade: pedidos e clientes criados no fluxo rápido continuam disponíveis automaticamente nos módulos de gerenciamento via consultas já existentes.
+
+##### Atualização incremental - Retorno automático pós-criação (UX)
+<!--
+Ajuste estritamente no frontend para redirecionar ao gerenciamento com destaque do registro recém-criado.
+-->
+- Impacto backend: nenhum.
+- Rotas, middlewares e contratos API permanecem inalterados.
+- Disponibilidade do registro após criação continua garantida pelos endpoints existentes de listagem.
+
+##### Atualização incremental - Produto no fluxo de criação de Pedido
+<!--
+O frontend passou a acionar criação de produto a partir do fluxo Novo Pedido, sem alterar backend.
+-->
+- Impacto em API: nenhum endpoint novo.
+- Endpoint reutilizado: `POST /api/products` (protegido por `token.valid` + `auth.system`).
+- Compatibilidade preservada:
+  - itens do pedido continuam validando `product_id` existente;
+  - após criar produto, o fluxo usa listagem de produtos ativos para associação no pedido.
+
+##### Atualização incremental - Otimização de persistência por indexação
+<!--
+Estratégia de performance orientada por padrões reais de consulta (Dashboard, Customers, Orders, Products).
+Sem alterações de contrato, sem alteração de regras de negócio e sem edição de migrations históricas.
+-->
+- Nova migration: `database/migrations/2026_07_31_000013_add_performance_indexes_for_dashboard_and_management.php`.
+- Índices adicionados e justificativa técnica:
+  - `customers_user_whatsapp_idx` em `(user_id, whatsapp)`:
+    - otimiza lookup de unicidade por usuário (`findByWhatsappForUser`) e validações de criação.
+  - `customers_whatsapp_idx` em `(whatsapp)`:
+    - otimiza lookup global de whatsapp (`findByWhatsapp`) em fluxos sem contexto de usuário.
+  - `orders_user_status_created_at_idx` em `(user_id, status, created_at)`:
+    - otimiza listagens de pedidos por usuário com filtro de status + ordenação temporal.
+  - `orders_user_customer_created_at_idx` em `(user_id, customer_id, created_at)`:
+    - otimiza listagens de pedidos por usuário com filtro de customer + ordenação temporal.
+  - `products_active_deleted_idx` em `(ativo, deleted_at)`:
+    - otimiza leitura de produtos ativos considerando soft delete.
+  - `deliveries_delivered_order_idx` em `(delivered_at, order_id)`:
+    - otimiza cálculo de métricas de entrega por janela temporal e associação com pedido.
+- Consultas otimizadas:
+  - `DashboardService` substituiu `whereDate(...)` por `whereBetween(...)` em `created_at` e `delivered_at`.
+  - ganho esperado: melhor aproveitamento de índices em consultas de intervalo diário para métricas.
+- Segurança e compatibilidade:
+  - sem mudança de autenticação/autorização;
+  - sem alteração de nomes de tabela/coluna;
+  - sem alteração de relacionamentos, Services, Controllers ou contratos API.
+
+##### Atualização incremental - Auditoria de conformidade arquitetural (SDD)
+<!--
+Fechamento de auditoria para validar aderência entre especificação AGENTS e implementação executável.
+-->
+- Validação de rotas e contratos:
+  - `php artisan route:list` confirmou 33 rotas esperadas, incluindo `/api/dashboard/metrics`, `/api/customers*`, `/api/products*` e `/api/orders*`.
+- Validação de middleware/aliases:
+  - `bootstrap/app.php` mantém aliases oficiais `token.valid` -> `UserTokenValid` e `auth.system` -> `AuthSystem`.
+  - nomenclatura consolidada da classe de autorização: `app/Http/Middleware/AuthSystem.php`.
+- Compatibilidade funcional:
+  - nenhuma alteração de endpoint, payload ou response foi necessária neste ciclo de auditoria.
+  - correções pós-auditoria ficaram restritas ao frontend (camada de apresentação), preservando Services e regras de negócio do backend.
+
+#### Feature FEAT-BE-006 - Dashboard Metrics API
+<!--
+Feature de agregacao de indicadores operacionais para dashboard do frontend SPA.
+Reutiliza DashboardService para evitar duplicacao de logica de negocio.
+-->
+- Objetivo: consolidar metricas reais de dashboard em um unico payload
+- Escopo: total de clientes, pedidos do dia, faturamento diario e tempo medio de entrega
+- Fluxo: route -> DashboardMetricsController -> DashboardService -> models -> JSON
+- Componentes envolvidos: DashboardMetricsController, DashboardService
+- Services: DashboardService (reutilizado)
+- Controllers: DashboardMetricsController
+- Requests: N/A dedicado (request autenticada)
+- Models: User, Customer, Order, Delivery
+- Repositories: N/A dedicado no fluxo atual (Eloquent via Service)
+- Interfaces: N/A dedicada no fluxo atual
+- Rotas relacionadas: GET /api/dashboard/metrics (protegida)
+- Dependências: middleware token.valid e auth.system
+- Responsabilidades: agregacao de indicadores e contrato consolidado para UI
 
 ### Comentário de arquitetura
 <!--
@@ -416,6 +561,7 @@ Persistência e integrações externas devem ser isoladas em repositories e adap
 | /api/orders/{id} | PATCH | OrderController | update | token.valid, auth.system | Privada |
 | /api/orders/{id}/status | PATCH | OrderController | changeStatus | token.valid, auth.system | Privada |
 | /api/orders/{id} | DELETE | OrderController | deleted | token.valid, auth.system | Privada |
+| /api/dashboard/metrics | GET | DashboardMetricsController | __invoke | token.valid, auth.system | Privada |
 
 ### Autenticação e autorização (estado atual)
 - token.valid: valida bearer token no request
@@ -888,6 +1034,7 @@ php artisan test
 | S02 | FEAT-BE-003 Customers | /api/customers* | Customer | tests/Feature/Customer/CustomerApiTest.php |
 | S02 | FEAT-BE-004 Products | /api/products* | Product | testes pendentes/refinamento |
 | S02 | FEAT-BE-005 Orders | /api/orders* | Order, OrderItem | testes pendentes/refinamento |
+| S02 | FEAT-BE-006 Dashboard Metrics | /api/dashboard/metrics | User, Customer, Order, Delivery | tests/Feature/Dashboard/DashboardMetricsApiTest.php |
 
 ### Diretriz de atualização da matriz
 <!--
@@ -951,3 +1098,660 @@ return Inertia::render('Dashboard', [
   'metrics' => $dashboard['metrics'],
 ]);
 ```
+
+### Extensao API para frontend SPA
+- Endpoint adicional criado: `GET /api/dashboard/metrics`
+- Controller novo: `app/Http/Controllers/DashboardMetricsController.php`
+- Contrato retornado: `status`, `data.user`, `data.metrics`, `message`
+- Reuso de servico: `DashboardService::buildUserDashboard()`
+- Fluxo ponta a ponta:
+```mermaid
+flowchart LR
+  A[Frontend Dashboard SPA] --> B[GET /api/dashboard/metrics]
+  B --> C[DashboardMetricsController]
+  C --> D[DashboardService]
+  D --> E[(users/customers/orders/deliveries)]
+  E --> D
+  D --> C
+  C --> F[JSON consolidado]
+```
+- Estrategia de agregacao:
+  - clientes totais: `Customer::count()`
+  - pedidos do dia: `Order::whereDate(created_at, hoje)->count()`
+  - faturamento diario: `Order::whereDate(created_at, hoje)->sum(total)`
+  - tempo medio entrega: media de minutos entre `created_at` e `delivered_at` nas entregas concluidas do dia
+
+---
+
+## 20. Consolidacao SDD Incremental (Single Source of Truth)
+
+<!--
+Secao incremental para padronizar leitura por topicos obrigatorios sem remover historico.
+Este bloco complementa as secoes existentes e deve ser mantido sincronizado com o codigo.
+-->
+
+### 1. SPRINTS
+- Objetivo: controlar evolucao por entregas de arquitetura e negocio.
+- Responsabilidades: rastrear status, riscos, dependencias e impacto tecnico.
+- Fluxo: planejamento -> implementacao -> validacao -> atualizacao documental.
+- Dependencias: testes de feature/unit, contracts API, migrations.
+- Observacoes tecnicas: manter consistencia com secoes 2, 5, 6 e 18.
+
+### 2. FEATURES
+- Objetivo: mapear comportamentos de negocio por modulo.
+- Responsabilidades: separar claramente fluxo HTTP, service e persistencia.
+- Fluxo: route -> controller -> service/use case -> repository -> model/resource.
+- Dependencias: middlewares, requests, resources e dominio.
+- Observacoes tecnicas: evitar logica de negocio fora de Services.
+
+### 3. ACCEPTANCE CRITERIA
+- Objetivo: definir criterio verificavel por endpoint/fluxo.
+- Responsabilidades: cobrir sucesso, erro de validacao, erro de autorizacao e erros semanticos.
+- Fluxo: Given/When/Then -> teste -> evidencias em CI/local.
+- Dependencias: Pest/PHPUnit e dados de fixture.
+- Observacoes tecnicas: atualizar criterios quando endpoint evoluir.
+
+### 4. API SPEC
+- Objetivo: consolidar contrato REST praticado pelo backend.
+- Responsabilidades: documentar endpoint, metodo, payload, response e codigos.
+- Fluxo: definicao de rota -> validacao -> resposta padronizada.
+- Dependencias: `routes/api.php`, controllers e resources.
+- Observacoes tecnicas: preservar backward compatibility quando possivel.
+
+### 5. DATA MODELS
+- Objetivo: representar modelo de dados real e estados planejados.
+- Responsabilidades: explicitar PK/FK, cardinalidade, soft deletes e indices.
+- Fluxo: migration -> model -> repository/service -> endpoint.
+- Dependencias: database migrations, Eloquent models.
+- Observacoes tecnicas: itens nao implementados devem ser marcados como `Planejado`.
+
+### 6. STACK
+- Objetivo: listar stack real de execucao e seus limites atuais.
+- Responsabilidades: distinguir stack ativa de capacidades planejadas.
+- Fluxo: infraestrutura (Docker) -> Laravel -> API/Jobs -> frontend.
+- Dependencias: Composer packages, config e runtime.
+- Observacoes tecnicas: projeto esta em Laravel 12 e PHP ^8.2 no momento.
+
+### 7. CODER AGENT ID
+- Objetivo: governanca de alteracoes e escopo de responsabilidade.
+- Responsabilidades: proteger arquitetura, contratos e seguranca.
+- Fluxo: analise -> mudanca incremental -> validacao -> documentacao.
+- Dependencias: AGENTS frontend/backend.
+- Observacoes tecnicas: IDs atuais permanecem `BACKEND-AGENT` e `DOC-AGENT`.
+
+### 8. FILE STRUCTURE
+- Objetivo: garantir navegabilidade e coesao do codigo.
+- Responsabilidades: manter separacao entre Application, Domain, HTTP e Infrastructure.
+- Fluxo: entrada HTTP -> camada de aplicacao -> dominio -> persistencia.
+- Dependencias: PSR-4 e convencoes de pastas.
+- Observacoes tecnicas: estrutura atual ja aderente ao padrao modular do projeto.
+
+## 21. Arquitetura Geral por Ambiente
+
+### Ambiente Administrativo
+- Objetivo: governanca e controle global do negocio.
+- Escopo funcional (estado atual): usuarios (parcial), clientes (ativo), produtos (ativo), pedidos (ativo), dashboard gerencial (ativo/parcial), tickets (parcial).
+- Escopo funcional (planejado): cargos/permissoes granulares, categorias avancadas, ingredientes, ficha tecnica, estoque, mesas/comandas, caixa completo, relatorios e configuracoes.
+- Responsabilidades: administrar cadastros mestres, auditoria e indicadores.
+- Dependencias: roles, policies/gates (planejado), eventos e filas (planejado).
+- Observacoes tecnicas: manter segregacao de acesso por role no middleware `auth.system`.
+
+### Ambiente Operacional
+- Objetivo: suportar fluxo diario de atendimento e execucao.
+- Escopo funcional ativo: dashboard operacional, criacao de clientes, abertura/gestao de pedidos do proprio usuario.
+- Escopo funcional planejado: KDS completo, caixa operacional com permissao e sincronizacao realtime.
+- Responsabilidades: agilidade de operacao com rastreabilidade minima.
+- Fluxo: autenticacao -> dashboard -> pedidos/clientes -> status operacional.
+- Dependencias: escopo por `user_id` em customers/orders, indices de leitura e controles de permissao.
+- Observacoes tecnicas: isolamento por usuario autenticado e regra consolidada em Services.
+
+## 22. Stack Tecnologica Consolidada
+
+### Backend (estado real)
+- Laravel 12
+- PHP ^8.2
+- REST API
+- Inertia Laravel v3 para pagina web `/dashboard`
+- Predis/Redis para cache e suporte a fila
+
+### Backend (planejado no roadmap)
+- Laravel Reverb e WebSockets
+- Event Broadcasting estruturado
+- Listeners, Jobs e Queues orientados a dominios operacionais
+- Notifications, Policies e Gates expandidos
+
+### Frontend (estado real do ecossistema)
+- Vue 3 + Composition API
+- Tailwind CSS
+- SPA modular principal em `frontend/src`
+- Inertia.js em `backend/resources/js` para tela web acoplada
+
+### Banco e Infra
+- MySQL 8.4 (Docker)
+- Docker e Docker Compose
+
+### Versionamento e metodo
+- Git (modelo de branches atual do time)
+- Spec-Driven Development (SDD)
+
+## 23. Camadas da Aplicacao (Responsabilidades Expandidas)
+
+### Presentation Layer
+- Responsabilidade: controllers, requests e resources HTTP.
+- Comunicacao: recebe request e delega para service.
+- Dependencias: middleware, validacao e resources.
+- Limitacoes: nao concentrar regra de negocio.
+- Boas praticas: controller fino e respostas padronizadas.
+
+### Application Layer
+- Responsabilidade: orquestrar casos de uso.
+- Comunicacao: entrada dos controllers, saida para repositories/models.
+- Dependencias: services/use cases.
+- Limitacoes: evitar detalhes de infra.
+- Boas praticas: metodos focados por acao de negocio.
+
+### Feature Layer
+- Responsabilidade: agrupar fluxos por dominio funcional.
+- Comunicacao: roteamento para camada de aplicacao.
+- Dependencias: requests/resources/services/repos.
+- Limitacoes: nao misturar multiplos dominios sem necessidade.
+- Boas praticas: coesao por feature.
+
+### Domain Layer
+- Responsabilidade: entidades e invariantes do negocio.
+- Comunicacao: consumida por Services.
+- Dependencias: Eloquent e objetos de dominio.
+- Limitacoes: evitar acoplamento com HTTP.
+- Boas praticas: nomes e estados orientados ao negocio.
+
+### Infrastructure Layer
+- Responsabilidade: repositórios e integrações externas (ex.: ViaCEP).
+- Comunicacao: chamada por Services.
+- Dependencias: Eloquent, clients externos.
+- Limitacoes: sem regra de negocio transversal.
+- Boas praticas: encapsular acesso tecnico.
+
+### Persistence Layer
+- Responsabilidade: schema, migrations, indices e constraints.
+- Comunicacao: consumida pelos repositorios.
+- Dependencias: MySQL e migracoes Laravel.
+- Limitacoes: nao codificar regras de UI.
+- Boas praticas: migrations incrementais e reversiveis.
+
+### Repository Layer
+- Responsabilidade: abstrair consultas e mutacoes.
+- Comunicacao: service -> repository -> model.
+- Dependencias: models e query builder.
+- Limitacoes: sem orquestracao de fluxo de negocio.
+- Boas praticas: centralizar filtros recorrentes e evitar duplicacao.
+
+### Service Layer
+- Responsabilidade: regra de negocio e orquestracao transacional.
+- Comunicacao: controllers e repositories.
+- Dependencias: repositories, models e DB transaction quando necessario.
+- Limitacoes: evitar acoplamento com detalhes de transporte HTTP.
+- Boas praticas: single responsibility por caso de uso.
+
+### Validation Layer
+- Responsabilidade: validar payload de entrada e regras semanticas.
+- Comunicacao: Requests/controllers -> Services.
+- Dependencias: Form Requests e validator do Laravel.
+- Limitacoes: validacao de request nao substitui invariantes de dominio.
+- Boas praticas: mensagens claras e codigos de erro consistentes.
+
+### Security Layer
+- Responsabilidade: autenticacao e autorizacao de acesso.
+- Comunicacao: middlewares antes de controllers.
+- Dependencias: `token.valid`, `auth.system`, user role.
+- Limitacoes: roles atuais sao coarse-grained; policies/gates ainda em expansao.
+- Boas praticas: negar por padrao e liberar por papel permitido.
+
+### Documentation Layer
+- Responsabilidade: manter AGENTS/README alinhados com codigo.
+- Comunicacao: atualizacao apos mudanca validada.
+- Dependencias: evidencias em rotas, testes e migracoes.
+- Limitacoes: nao documentar funcionalidade inexistente como ativa.
+- Boas praticas: sinalizar `Planejado` ou `Roadmap` quando aplicavel.
+
+### Exception Layer
+- Responsabilidade: padronizar mensagens e codigos de erro.
+- Comunicacao: exception -> resposta HTTP sem vazar detalhe sensivel.
+- Dependencias: tratamento no controller/service e exceptions Laravel.
+- Limitacoes: sem handler custom central dedicado em `app/Exceptions` no estado atual.
+- Boas praticas: mapear erros de dominio para 4xx adequados.
+
+## 24. Dominio Food Service (Estado Atual e Planejado)
+
+### Pedidos
+- Tipos planejados: Balcao, Delivery, Mesa, Retirada.
+- Estado atual: fluxo unificado de pedidos com status e itens.
+- Regras ativas:
+  - pedido pertence ao usuario autenticado (`user_id`);
+  - cliente associado deve pertencer ao mesmo usuario;
+  - total recalculado por itens;
+  - transicao de status validada em service.
+
+### Clientes
+- Estado atual: CRUD com escopo por usuario e filtro por whatsapp/nome/cidade.
+- Regras ativas: prevencao de duplicidade de whatsapp (por escopo) e preenchimento de endereco por ViaCEP quando possivel.
+
+### Produtos e Categorias
+- Estado atual: catalogo de produtos com `ativo` e soft delete; categorias base ativas.
+- Regras ativas: pedidos referenciam produto existente; listagem de ativos para composicao de itens.
+
+### Ingredientes, Ficha Tecnica, Estoque
+- Estado atual: Planejado.
+- Regra documental: manter modelagem como roadmap, sem inferir implementacao inexistente.
+
+### Caixa
+- Estado atual: Planejado (operacao completa de abertura/sangria/suprimento/fechamento cego).
+
+### Comandas e Mesas
+- Estado atual: Planejado.
+
+### KDS (Kitchen Display System)
+- Estado atual: Planejado (status de producao detalhado e SLA).
+
+### Dashboard e Relatorios
+- Estado atual: dashboard com metricas consolidadas por usuario (clientes, pedidos do dia, faturamento, media de entrega).
+- Estado planejado: relatorios gerenciais avancados e visoes operacionais realtime.
+
+## 25. Modelagem de Banco de Dados (Inventario Consolidado)
+
+### Tabelas ativas no estado atual
+- Users
+- Customers
+- Addresses
+- Categories
+- Products
+- Orders
+- Order Items
+- Deliveries
+- Payment Transactions
+- Tickets
+- WhatsApp Messages
+- Sessions / Cache / Jobs (infra)
+
+### Tabelas planejadas (nao implementadas)
+- Ingredients
+- Recipe
+- Inventory
+- Cash Register
+- Transactions (caixa operacional detalhado)
+- Tables (mesas)
+- Commands (comandas)
+- KDS Status
+- Orders History
+
+### Relacionamentos e cardinalidade (ativo)
+- `users 1:N customers` (nullable FK em customers)
+- `users 1:N orders` (nullable FK em orders)
+- `customers 1:N orders`
+- `orders 1:N order_items`
+- `products 1:N order_items`
+- `orders 1:1..N deliveries` (modelo atual permite N tecnicamente, uso principal 1:1)
+- `orders 1:N payment_transactions`
+- `customers 1:N tickets` (nullable)
+- `customers 1:N whatsapp_messages` (nullable)
+
+### Chaves e constraints
+- PK: `id` bigint auto-increment na maioria das tabelas.
+- FK: `customer_id`, `order_id`, `product_id`, `driver_id`, `user_id` conforme migrations.
+- Composite keys: nao ha PK composta ativa no estado atual.
+- Unique: `users.email`, `failed_jobs.uuid`.
+- Soft deletes: `users`, `customers`, `addresses`, `products`, `orders`.
+
+### Indices ativos e justificativa tecnica
+- `sessions.user_id`, `sessions.last_activity`: lookup de sessao e atividade.
+- `jobs.queue`: consumo de fila por canal.
+- `orders (user_id, created_at)`: leitura temporal por usuario.
+- `customers_user_whatsapp_idx (user_id, whatsapp)`: busca por whatsapp no escopo do usuario.
+- `customers_whatsapp_idx (whatsapp)`: busca global de whatsapp quando necessario.
+- `orders_user_status_created_at_idx (user_id, status, created_at)`: listagem por status + ordenacao temporal.
+- `orders_user_customer_created_at_idx (user_id, customer_id, created_at)`: listagem por cliente + timeline.
+- `products_active_deleted_idx (ativo, deleted_at)`: selecao eficiente de catalogo ativo com soft delete.
+- `deliveries_delivered_order_idx (delivered_at, order_id)`: agregacao de metricas diarias de entrega.
+
+## 26. API Spec Expandida (REST)
+
+### Customers
+- GET `/api/customers`: lista clientes do usuario autenticado.
+- POST `/api/customers`: cria cliente (publico, com associacao ao usuario quando autenticado).
+- PUT/PATCH `/api/customers/{id}`: atualiza cliente do usuario.
+- DELETE `/api/customers/{id}`: remove cliente do usuario.
+
+### Orders
+- GET `/api/orders`: lista pedidos do usuario autenticado.
+- POST `/api/orders`: cria pedido com itens e delivery inicial.
+- GET `/api/orders/{id}`: detalhe por escopo de usuario.
+- PUT/PATCH `/api/orders/{id}`: atualiza pedido por escopo de usuario.
+- PATCH `/api/orders/{id}/status`: altera status com validacao semantica.
+- DELETE `/api/orders/{id}`: exclui pedido por escopo de usuario.
+
+### Products
+- GET `/api/products`: lista catalogo.
+- GET `/api/products/active`: lista ativos.
+- POST `/api/products`: cria produto.
+- PUT/PATCH `/api/products/{id}`: atualiza produto.
+- DELETE `/api/products/{id}`: remove produto.
+
+### Dashboard
+- GET `/api/dashboard/metrics`: consolidado de metricas por usuario.
+
+### Auth
+- POST `/api/auth/login` e `/api/login`
+- POST `/api/auth/register` e `/api/register`
+
+### Erros e validacao
+- 400/422: payload invalido ou inconsistente
+- 401: token ausente/invalido
+- 403: role nao autorizada
+- 404: recurso fora do escopo/nao encontrado
+- 500: falha interna nao prevista
+
+## 27. OpenAPI 3.0 - Caixa (Planejado)
+
+<!--
+Especificacao planejada para modulo de caixa ainda nao implementado no codigo.
+Mantida aqui como baseline de contrato futuro sem alterar rotas atuais.
+-->
+
+```yaml
+openapi: 3.0.3
+info:
+  title: SimplyFood Cash Register API (Planned)
+  version: 0.1.0
+  description: Contratos planejados para fluxo de caixa operacional.
+servers:
+  - url: https://api.simplyfood.local
+security:
+  - bearerAuth: []
+paths:
+  /cash-register/open:
+    post:
+      summary: Abrir caixa
+      tags: [Cash Register]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashRegisterOpenRequest'
+            examples:
+              default:
+                value:
+                  opening_amount: 200.00
+                  opened_at: '2026-07-31T08:00:00-03:00'
+      responses:
+        '201':
+          description: Caixa aberto com sucesso.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashRegisterResponse'
+        '401':
+          description: Nao autenticado.
+        '403':
+          description: Sem permissao para abrir caixa.
+        '422':
+          description: Erro de validacao.
+  /cash-register/transaction:
+    post:
+      summary: Registrar transacao no caixa
+      tags: [Cash Register]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashTransactionRequest'
+            examples:
+              pix:
+                value:
+                  type: SUPRIMENTO
+                  amount: 150.00
+                  payment_method: PIX
+                  note: Aporte inicial de troco
+      responses:
+        '201':
+          description: Transacao registrada.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashTransactionResponse'
+        '401':
+          description: Nao autenticado.
+        '403':
+          description: Sem permissao.
+        '422':
+          description: Erro de validacao.
+  /cash-register/close-blind:
+    post:
+      summary: Fechamento cego de caixa
+      tags: [Cash Register]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CashRegisterCloseBlindRequest'
+            examples:
+              close:
+                value:
+                  counted_amount: 1845.30
+                  closed_at: '2026-07-31T23:15:00-03:00'
+      responses:
+        '200':
+          description: Caixa fechado.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CashRegisterCloseBlindResponse'
+        '401':
+          description: Nao autenticado.
+        '403':
+          description: Sem permissao.
+        '422':
+          description: Erro de validacao.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    CashRegisterOpenRequest:
+      type: object
+      required: [opening_amount, opened_at]
+      properties:
+        opening_amount:
+          type: number
+          format: float
+          minimum: 0
+        opened_at:
+          type: string
+          format: date-time
+    CashTransactionRequest:
+      type: object
+      required: [type, amount, payment_method]
+      properties:
+        type:
+          type: string
+          enum: [SANGRIA, SUPRIMENTO, VENDA, AJUSTE]
+        amount:
+          type: number
+          format: float
+          minimum: 0.01
+        payment_method:
+          type: string
+          enum: [PIX, CARTAO, DINHEIRO]
+        note:
+          type: string
+          maxLength: 255
+    CashRegisterCloseBlindRequest:
+      type: object
+      required: [counted_amount, closed_at]
+      properties:
+        counted_amount:
+          type: number
+          format: float
+          minimum: 0
+        closed_at:
+          type: string
+          format: date-time
+    CashRegisterResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            opening_amount:
+              type: number
+              format: float
+            opened_at:
+              type: string
+              format: date-time
+    CashTransactionResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            type:
+              type: string
+            amount:
+              type: number
+              format: float
+            payment_method:
+              type: string
+    CashRegisterCloseBlindResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+          properties:
+            id:
+              type: integer
+            counted_amount:
+              type: number
+              format: float
+            divergence:
+              type: number
+              format: float
+```
+
+## 28. Event Driven / Realtime (Estado Atual e Planejado)
+
+### Estado atual
+- Events, Listeners e Jobs: pastas existentes, sem implementacoes ativas versionadas.
+- Queue: infraestrutura pronta via `config/queue.php` e tabelas `jobs`, `job_batches`, `failed_jobs`.
+- Redis: disponivel via Docker para evolucao de fila/cache.
+
+### Estado planejado
+- Laravel Reverb e broadcasting para atualizacao de pedidos/KDS/dashboard.
+- Fluxo alvo:
+  - Operador -> Pedido -> Cozinha -> Dashboard -> Admin.
+- Mecanismos previstos: Events + Listeners + Queues + Notifications + WebSockets/SSE.
+
+### Observacoes tecnicas
+- Documentacao mantem planejamento sem afirmar ativacao realtime atual.
+- Qualquer ativacao futura deve incluir contracts de evento e estrategia de idempotencia.
+
+## 29. Kitchen Display System (Planejado)
+
+- Fluxo alvo de status: Recebido -> Preparando -> Pronto -> Entregue/Cancelado.
+- SLA: medicao por timestamps de transicao e alertas por excedente.
+- Eventos: emissao por mudanca de status de pedido e consumo por painel operacional.
+- Sincronizacao: atualizacao em tempo real (planejada) com fallback de polling.
+- Estado atual: nao implementado como modulo dedicado.
+
+## 30. Controle de Caixa (Planejado)
+
+- Abertura: registrar valor inicial e operador.
+- Sangria: retirada justificada de numerario.
+- Suprimento: aporte de caixa.
+- Fechamento cego: confronto entre valor esperado e contado.
+- Relatorios: consolidacao por periodo e operador.
+- Divergencias: registro de delta e trilha de auditoria.
+- Metodos de pagamento: PIX, Cartao e Dinheiro.
+- Estado atual: endpoints e entidades ainda nao implementados; baseline em OpenAPI planejada (secao 27).
+
+## 31. Seguranca, Validacao e Excecoes
+
+### Authentication
+- Middleware `token.valid` para validar token e fallback de testes.
+- Rotas publicas de auth para login/register.
+
+### Authorization
+- Middleware `auth.system` com roles permitidas por rota.
+- Escopo atual por role: `ADMIN`, `MANAGER`, `OPERATOR` nas rotas protegidas principais.
+
+### Policies e Gates
+- Estado atual: Planejado para granularidade fina por recurso.
+
+### JWT / Sanctum
+- Estado atual: token custom/fallback para testes e verificacao de guard quando Sanctum existe.
+- Diretriz: evolucao para mecanismo unificado deve ser planejada sem breaking changes.
+
+### Rate Limit / CSRF
+- API stateless protegida por token em rotas de negocio.
+- Rate limiting dedicado: Planejado para endurecimento adicional.
+
+### Tratamento de excecoes
+- Estado atual: sem camada custom central em `app/Exceptions`.
+- Diretriz: padronizar mapeamento de excecoes de dominio para HTTP em evolucao futura.
+
+## 32. Testing Layer
+
+- Objetivo: preservar comportamento e contratos API.
+- Estado atual: suites de feature para Customers, Orders e Dashboard; unitarios em evolucao.
+- Responsabilidades:
+  - validar escopo por usuario autenticado;
+  - validar transicoes de status e retornos semanticos;
+  - validar metricas consolidadas do dashboard.
+- Dependencias: Pest/PHPUnit, banco de teste e fixtures consistentes.
+
+## 33. Future Roadmap (Sprints Futuras)
+
+### Sprint S03 - Seguranca e Governanca
+- Objetivo: evoluir autorizacao para Policies/Gates e trilha de auditoria.
+- Features: matriz de permissoes por recurso e rate limit sensivel por endpoint.
+- Criterios de aceite: acesso negado/permitido por politica testada.
+- Impacto arquitetural: expansao da Security Layer sem quebrar middlewares existentes.
+- Dependencias: mapeamento de perfis e recursos.
+- Estimativa tecnica: alta.
+- Riscos: regressao de permissao em rotas legadas.
+
+### Sprint S04 - Operacao Realtime
+- Objetivo: iniciar arquitetura orientada a eventos para pedidos e KDS.
+- Features: eventos de pedido, listeners de notificacao e workers dedicados.
+- Criterios de aceite: atualizacao quase em tempo real de estados operacionais.
+- Impacto arquitetural: introducao de Event/Queue Layer ativa.
+- Dependencias: Reverb/WebSockets, infraestrutura de workers.
+- Estimativa tecnica: alta.
+- Riscos: consistencia eventual e idempotencia.
+
+### Sprint S05 - Caixa e Relatorios
+- Objetivo: implementar modulo de caixa orientado por contrato OpenAPI.
+- Features: abertura, transacao, fechamento cego e relatorios basicos.
+- Criterios de aceite: fechamento auditavel com divergencia calculada.
+- Impacto arquitetural: novos dominios de persistencia e seguranca por permissao.
+- Dependencias: definicao final de modelos de caixa e UX operacional.
+- Estimativa tecnica: alta.
+- Riscos: complexidade de reconciliacao financeira.
+- Teste de feature adicionado: `tests/Feature/Dashboard/DashboardMetricsApiTest.php`
+- Dependencias adicionadas: nenhuma
+- Decisao arquitetural: manter um unico service de agregacao (DashboardService) atendendo Inertia e API para evitar duplicacao de regra.

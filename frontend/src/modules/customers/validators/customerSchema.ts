@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const customerSchema = z.object({
   name: z.string().min(3, 'O nome deve ter no mínimo 3 caracteres'),
+  phone: z.string().min(8, 'Telefone inválido').max(20, 'Telefone inválido'),
   email: z.string().email('E-mail em formato inválido'),
   whatsapp: z.string().regex(/^55\d{10,11}$/, 'WhatsApp inválido. Deve seguir o padrão 55 + DDD + Número (ex: 5511999999999)'),
   cpfCnpj: z.string().min(11, 'CPF/CNPJ deve ter entre 11 e 14 dígitos').max(14, 'CPF/CNPJ deve ter entre 11 e 14 dígitos'),

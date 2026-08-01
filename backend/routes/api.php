@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DashboardMetricsController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use Illuminate\Support\Facades\Route;
@@ -19,7 +20,11 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/customers', [CustomerController::class, 'store']);
 
+
+
 Route::middleware(['token.valid', 'auth.system:ADMIN,MANAGER,OPERATOR'])->group(function () {
+    Route::get('/dashboard/metrics', DashboardMetricsController::class);
+
     Route::prefix('customers')->group(function () {
         Route::get('/', [CustomerController::class, 'get']);
         Route::get('/{id}', [CustomerController::class, 'show']);

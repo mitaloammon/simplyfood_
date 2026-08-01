@@ -18,6 +18,7 @@ describe('CreateCustomerService', () => {
   it('creates a customer successfully when whatsapp is not registered', async () => {
     const dto = {
       name: 'João Silva',
+      phone: '1133345566',
       email: 'joao@test.com',
       whatsapp: '5511999999999',
       cpf_cnpj: '12345678901',
@@ -39,6 +40,7 @@ describe('CreateCustomerService', () => {
         data: {
           id: 42,
           name: 'João Silva',
+          phone: '1133345566',
           email: 'joao@test.com',
           whatsapp: '5511999999999',
           cpf_cnpj: '12345678901',
@@ -61,6 +63,7 @@ describe('CreateCustomerService', () => {
   it('throws an error if a customer already exists with this whatsapp', async () => {
     const dto = {
       name: 'Duplicate User',
+      phone: '1133345566',
       email: 'duplicate@test.com',
       whatsapp: '5511999999999',
       cpf_cnpj: '12345678901',
