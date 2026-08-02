@@ -34,6 +34,7 @@ Route::middleware(['token.valid', 'auth.system:ADMIN,MANAGER,OPERATOR'])->group(
     });
 
     Route::prefix('products')->group(function () {
+        Route::get('/quick-create/options', [ProductController::class, 'quickCreateOptions']);
         Route::get('/', [ProductController::class, 'get']);
         Route::get('/active', [ProductController::class, 'getActive']);
         Route::get('/{id}', [ProductController::class, 'show']);
@@ -44,11 +45,14 @@ Route::middleware(['token.valid', 'auth.system:ADMIN,MANAGER,OPERATOR'])->group(
     });
 
     Route::prefix('orders')->group(function () {
+        Route::get('/management', [OrderController::class, 'management']);
         Route::get('/', [OrderController::class, 'get']);
         Route::get('/{id}', [OrderController::class, 'show']);
+        Route::get('/{id}/timeline', [OrderController::class, 'timeline']);
         Route::post('/', [OrderController::class, 'post']);
         Route::put('/{id}', [OrderController::class, 'update']);
         Route::patch('/{id}', [OrderController::class, 'update']);
+        Route::patch('/{id}/associate-customer', [OrderController::class, 'associateCustomer']);
         Route::patch('/{id}/status', [OrderController::class, 'changeStatus']);
         Route::delete('/{id}', [OrderController::class, 'deleted']);
     });

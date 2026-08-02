@@ -1,4 +1,9 @@
+<script setup lang="ts">
+import AppToasts from '@/shared/components/AppToasts.vue';
+</script>
+
 <template>
+  <AppToasts />
   <router-view />
 </template>
 

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Customer;
 
+use App\Domains\Auth\User\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -29,5 +30,31 @@ class CustomerApiTest extends TestCase
                  ]);
 
         $this->assertDatabaseHas('customers', ['email' => 'maria@test.com']);
+    }
+
+    /** @test */
+    public function it_associates_customer_to_authenticated_user_when_bearer_token_is_sent(): void
+    {
+        $user = User::factory()->create(['role' => 'ADMIN']);
+
+        $payload = [
+            'name' => 'Carlos Token',
+            'phone' => '11977776666',
+            'whatsapp' => '11977776666',
+            'email' => 'carlos-token@test.com',
+            'cpf_cnpj' => '12312312399',
+        ];
+
+        $response = $this
+            ->withHeaders(['Authorization' => 'Bearer valid-' . $user->id])
+            ->postJson('/api/customers', $payload);
+
+        $response->assertStatus(201)
+            ->assertJsonPath('status', 'success');
+
+        $this->assertDatabaseHas('customers', [
+            'email' => 'carlos-token@test.com',
+            'user_id' => $user->id,
+        ]);
     }
 }

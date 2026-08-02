@@ -344,6 +344,24 @@ Mantém gerenciamento completo apenas nos módulos laterais.
 - Compatibilidade:
   - sem mudanças de contrato API; fluxo de autenticação (`apiClient` + token) preservado.
 
+##### Atualização incremental - Dashboard com modais flutuantes para criação
+<!--
+Evolução de UX para manter o usuário na tela inicial enquanto executa criação rápida.
+-->
+- Dashboard (`DashboardPage.vue`) deixou de navegar para `/customers?action=create` e `/orders?action=create` ao clicar nos atalhos.
+- Novo comportamento:
+  - `Novo Cliente` abre modal flutuante com todos os campos de cadastro de cliente.
+  - `Novo Pedido` abre modal flutuante com campos de pedido e seção de cadastro rápido de produto.
+- Fluxos de ação nos modais:
+  - botão `Salvar` persiste o registro usando os mesmos services/adapters existentes;
+  - botão `Cancelar` fecha o modal e descarta o preenchimento local.
+- Reuso arquitetural:
+  - criação de cliente reutiliza `CustomerForm` + `CreateCustomerService`;
+  - criação de pedido reutiliza `OrderApi` e `ProductApi` para pedido/produto no mesmo fluxo rápido.
+- Resultado arquitetural:
+  - camada de apresentação evoluída sem alteração de contratos backend;
+  - dashboard continua orientado a ações rápidas e métricas.
+
 ##### Atualização incremental - Pós-criação com retorno automático ao gerenciamento
 <!--
 Melhoria de UX no quick-create para fechar o ciclo sem ambiguidade de navegação.
@@ -372,6 +390,30 @@ Mantém separação entre criação rápida (Dashboard -> Novo Pedido) e gestão
   - Dashboard continua apenas iniciando criação rápida;
   - gerenciamento completo do pedido e associações permanece em `/orders`.
 
+## Modal de Cadastro
+
+Diretrizes de UI/UX para cadastro rápido corporativo de produto:
+- abrir centralizado;
+- possuir largura confortável;
+- ser responsivo;
+- utilizar duas colunas em desktop;
+- utilizar uma coluna em mobile;
+- possuir espaçamento consistente;
+- utilizar componentes reutilizáveis.
+
+Diretrizes de ergonomia:
+- nunca utilizar telas excessivamente carregadas;
+- priorizar clareza;
+- priorizar rapidez;
+- reduzir carga cognitiva;
+- manter aparência de ERP corporativo.
+
+### FEATURE - Cadastro Corporativo de Produtos (FEAT-FE-005)
+- Modal dedicado para criação rápida de produto reutilizado nos fluxos operacionais.
+- Consome dados dinâmicos do backend para categorias, unidades, defaults e mensagens de validação.
+- Mantém arquitetura de composição (`Composition API`) e tipagem forte (`TypeScript`).
+- Preserva contratos existentes de `ProductApi` com extensão compatível para payload multipart.
+
 ##### Atualização incremental - Auditoria de conformidade (UX e consistência visual)
 <!--
 Hardening aplicado após auditoria SDD para restaurar comportamentos especificados sem alterar contratos HTTP.
@@ -381,6 +423,14 @@ Hardening aplicado após auditoria SDD para restaurar comportamentos especificad
 - `OrderPage.vue` com restauração do gatilho visível `Cadastrar Produto` na seção de itens durante o fluxo `action=create`.
 - `DashboardLayout.vue` atualizado com `background-clip: text` para compatibilidade cross-browser no logotipo.
 - Resultado arquitetural: correções restritas à camada de apresentação, preservando Services, Stores, composables e contratos de API.
+
+##### Atualização incremental - Reaplicação de consistência no filtro de Clientes
+<!--
+Correção de regressão externa detectada após edição fora do fluxo de implementação.
+-->
+- `CustomerPage.vue` recebeu novamente o campo visual `Filtrar por WhatsApp` no painel de filtros.
+- Impacto: restaura paridade entre estado interno (`filters.whatsapp`) e interface renderizada.
+- Compatibilidade: nenhuma alteração de contrato API, somente camada de apresentação.
 
 ##### Atualização incremental - Performance de leitura (impacto percebido)
 <!--
@@ -426,10 +476,10 @@ A lógica de fluxo deve permanecer em services, stores e composables, de forma p
 
 ### Cadastro de Clientes
 - Checklist funcional:
-  - [ ] formulário valida campos obrigatórios
-  - [ ] exibe erro para dados inválidos
-  - [ ] envia dados à API corretamente
-  - [ ] mostra feedback de sucesso ou falha
+  - [x] formulário valida campos obrigatórios
+  - [x] exibe erro para dados inválidos
+  - [x] envia dados à API corretamente
+  - [x] mostra feedback de sucesso ou falha
 
 ---
 
@@ -999,4 +1049,103 @@ Referencia cruzada: secoes 2 a 19 deste documento.
 - Dependencias: estabilidade dos contratos de API.
 - Estimativa tecnica: media.
 - Riscos: flakes em testes de interface sem isolamento adequado.
+
+## 25. Atualizacao Incremental - Orders Management Only
+
+<!--
+Refatoracao funcional aplicada para separar completamente criacao e gerenciamento.
+Criacao rapida continua no Dashboard; menu Pedidos passa a operar apenas em modo gestao.
+-->
+
+### Objetivo
+- concentrar o menu `/orders` no fluxo de gerenciamento operacional
+- preservar criacao rapida no Dashboard sem regressao de contrato API
+
+### Escopo funcional aplicado
+- `OrderPage.vue` reescrita para modo gerenciamento-only
+- filtros dinamicos adicionados: numero, cliente, operador, status, tipo, data, valor minimo e valor maximo
+- tabela paginada adicionada com colunas operacionais:
+  - numero do pedido
+  - cliente
+  - operador
+  - tipo
+  - itens
+  - total
+  - status
+  - criado em
+  - atualizado em
+- drawer operacional reutilizavel com:
+  - dados gerais
+  - timeline
+  - resumo financeiro
+  - associacao de cliente por autocomplete
+  - alteracao de status
+
+### Componentes/composables/services novos
+- `src/modules/orders/components/OrdersFilterBar.vue`
+- `src/modules/orders/components/OrdersTable.vue`
+- `src/modules/orders/components/OrderManagementDrawer.vue`
+- `src/modules/orders/components/CustomerAssociateAutocomplete.vue`
+- `src/modules/orders/composables/useOrderManagement.ts`
+- `src/modules/orders/services/OrderManagementService.ts`
+- `src/modules/orders/hooks/useOrdersRealtimeSync.ts`
+- `src/modules/orders/types/OrderManagement.ts`
+
+### Contratos consumidos
+- `GET /api/orders/management`
+- `GET /api/orders/{id}`
+- `GET /api/orders/{id}/timeline`
+- `PATCH /api/orders/{id}/associate-customer`
+- `PATCH /api/orders/{id}/status`
+
+### Decisoes arquiteturais
+- Feature Layer preservada: pagina -> composable -> service -> api adapter
+- sem logica de negocio no componente de pagina
+- sem alteracao de autenticao/headers/interceptors
+- separacao Dashboard x Orders consolidada:
+  - Dashboard: criacao rapida
+  - Orders (menu lateral): gerenciamento completo
+
+### Criterios de aceite atendidos
+- menu Pedidos nao expoe mais formulario de criacao manual
+- gerenciamento lista e detalha pedidos com paginação e filtros
+- alteracao de status e associacao de cliente atualizam lista e timeline
+- build do frontend validado apos refatoracao
+
+## 26. Fluxo Operacional de Produtos e Pedidos
+
+<!--
+Regra de UX e arquitetura para separar o fluxo de produto do fluxo de pedido.
+O modal de cadastro rápido de produto é único e reutilizado por Dashboard e por qualquer fluxo operacional que o invoque.
+-->
+
+### Objetivo
+- manter Produto como entidade independente da experiência de Pedido
+- garantir que Pedido consuma apenas produtos previamente cadastrados
+- centralizar o cadastro rápido de produto em um único modal reutilizável
+
+### Regras de negócio consolidadas
+- Produto pertence ao módulo Produtos
+- Pedido não é responsável pelo cadastro principal de produtos
+- o botão Novo Produto abre diretamente o modal corporativo de produto
+- o botão Novo Pedido abre exclusivamente o modal de pedido
+- o botão Cadastrar Produto Rapidamente dentro do pedido abre exatamente o mesmo modal corporativo usado no Dashboard
+- nenhum módulo deve duplicar o formulário, a lógica ou a UI de cadastro de produto
+- após salvar um produto, as listagens dependentes são atualizadas automaticamente e o contexto do usuário é preservado
+
+### Feature correspondente
+- **FEAT-FE-005 - Cadastro Corporativo de Produtos**
+- escopo: cadastro rápido, modal reutilizável, componentes reutilizáveis, validação em tempo real pela UI e atualização automática das listas relacionadas
+- componentes reutilizados: `ProductQuickCreateModal`, `ProductForm`, `ProductCategorySelect`, `ProductUnitSelect`, `ProductSwitchGroup`, `ProductImageUpload`
+
+### Sprint correspondente
+- **F02.1 - Cadastro Corporativo de Produtos**
+- objetivo: consolidar a separação entre criação de produto e criação de pedido no frontend
+- foco: permitir Novo Produto independente no Dashboard e manter Novo Pedido restrito ao consumo de produtos existentes
+
+### Impacto arquitetural
+- preserva o padrão Feature Layer no frontend
+- evita duplicação de modal e de lógica de cadastro de produto
+- mantém Vue 3 + TypeScript + Composition API + TailwindCSS como base do fluxo
+- mantém o frontend sincronizado com os contratos Laravel já existentes
 

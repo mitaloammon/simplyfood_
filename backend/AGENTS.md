@@ -73,10 +73,10 @@ A evolução deve manter rastreabilidade entre Sprint -> Feature -> API -> Model
   - [x] estrutura base do Laravel
   - [x] rotas públicas de autenticação
   - [x] middleware de validação de token
-  - [ ] cobertura completa de testes de auth
+  - [x] cobertura completa de testes de auth
 - Prioridade: Alta
 - Entregues: login, registro, health check
-- Pendentes: testes e refinamento de permissões
+- Pendentes: refinamento de permissões
 - Riscos: inconsistência entre papéis e permissões
 - Bloqueios: nenhum
 
@@ -98,8 +98,24 @@ A evolução deve manter rastreabilidade entre Sprint -> Feature -> API -> Model
 - Riscos: mudanças de regra de negócio
 - Bloqueios: dependência de integração com frontend
 
+### Sprint 02.1 - Cadastro Corporativo de Produtos
+- ID: S02.1
+- Nome: Product Quick Create
+- Objetivo: entregar cadastro rápido corporativo para produtos com expansão segura para cadastro avançado
+- Status: Ativo
+- Responsável: Backend Team
+- Dependências: S02, ProductService, ProductController, ProductResource
+- Checklist:
+  - [x] modal rápido com integração API
+  - [x] validações de campos essenciais no backend
+  - [x] retorno de erros por campo para UX orientada a operação
+  - [x] estrutura preparada para expansão futura
+- Prioridade: Alta
+- Riscos: divergência entre payload legado e payload corporativo
+- Mitigação: manter `preco` legado compatível com `preco_venda`
+
 ### Backlog consolidado (Sprints)
-- S01: ampliar cobertura de testes para autenticação
+- S01: manter e evoluir cobertura de testes para autenticação
 - S02: consolidar CRUD completo de customers/products/orders com critérios de aceite
 - S02: reduzir riscos de divergência de contratos entre API e frontend
 
@@ -203,6 +219,45 @@ validação e contratos de API.
 - Models: Order
 - Endpoints: GET /api/orders, GET /api/orders/{id}, POST /api/orders, PATCH /api/orders/{id}/status
 - Status: Parcialmente implementado
+
+### Feature 6 - Cadastro Corporativo de Produtos
+- Nome: Corporate Product Quick Create
+- ID de rastreio: FEAT-BE-006
+- Descrição: cadastro rápido de produtos orientado a operação de food service
+- Objetivo: permitir criação de produto em fluxo inferior a 30 segundos, sem sobrecarga visual
+- Escopo: criação imediata com campos essenciais, validações robustas e compatibilidade com evolução futura
+- Fluxo: modal frontend -> ProductController -> StoreProductRequest -> ProductService -> ProductResource
+- Dependências: autenticação, categories ativas, policies de produto
+- Arquivos envolvidos: ProductController, ProductService, StoreProductRequest, ProductResource, migration incremental de produtos
+- Controllers: ProductController
+- Services: ProductService
+- Models: Product
+- Endpoints: GET /api/products/quick-create/options, POST /api/products, PUT/PATCH /api/products/{id}
+- Inertia (web): GET /products/quick-create com payload dinâmico de categorias/unidades/defaults/permissões
+- Critérios de aceitação:
+  - cadastro rápido em modal;
+  - criação imediata do produto;
+  - validações backend;
+  - integração completa com Inertia/API contracts;
+  - retorno de erros por campo;
+  - suporte à expansão futura.
+- Status: Ativo
+
+## Módulo Produtos
+
+### Cadastro Rápido
+O cadastro inicial deve conter apenas os campos essenciais para operação diária.
+
+Após salvar, o produto estará apto para utilização no sistema.
+
+Configurações fiscais, produção, fornecedores e ficha técnica deverão permanecer no cadastro avançado.
+
+Princípios do módulo:
+- simplicidade operacional;
+- menor quantidade possível de campos obrigatórios;
+- fluxo de cadastro inferior a 30 segundos;
+- UX corporativa;
+- evitar sobrecarga visual.
 
 ---
 
@@ -319,6 +374,20 @@ Regras de negócio permanecem em CustomerService.
   - controller atualizado: `get/show/update/deleted` usam escopo por usuário quando autenticado.
 - Fluxo protegido atualizado: `GET|PUT|PATCH|DELETE /api/customers*` retorna/altera/exclui apenas clientes do usuário autenticado.
 - Fluxo público preservado: `POST /api/customers` continua disponível para cadastro sem exigir token.
+
+##### Atualização incremental - Associação de cliente ao usuário no create público autenticado
+<!--
+Garantia de rastreabilidade de ownership sem quebrar contrato público da rota de criação.
+-->
+- Contexto: `POST /api/customers` é rota pública por contrato, mas pode receber `Authorization` no fluxo autenticado do dashboard.
+- Ajuste aplicado em `CustomerController`:
+  - resolução de usuário autenticado via `request->user()` quando disponível;
+  - fallback seguro para bearer token no padrão `valid-{id}` para associar `user_id` quando houver contexto autenticado.
+- Compatibilidade preservada:
+  - criação pública sem token continua funcional;
+  - criação autenticada passa a persistir relacionamento `customers.user_id` com o usuário da sessão/token.
+- Cobertura de teste adicionada:
+  - `tests/Feature/Customer/CustomerApiTest.php` valida associação de `user_id` ao criar cliente com bearer token válido.
 
 ##### Atualização incremental de arquitetura (Service Layer Audit)
 <!--
@@ -1724,6 +1793,15 @@ components:
   - validar metricas consolidadas do dashboard.
 - Dependencias: Pest/PHPUnit, banco de teste e fixtures consistentes.
 
+### Atualização incremental - Cobertura de autenticação
+- Testes de feature adicionados em `tests/Feature/Auth/AuthApiTest.php`.
+- Cenários cobertos:
+  - login com credenciais válidas (retorno de token e usuário);
+  - login com credenciais inválidas (401);
+  - acesso sem token em rota protegida (401);
+  - acesso com role não permitida em rota protegida (403).
+- Resultado arquitetural: reforço da Security Layer sem alteração de contratos públicos da API.
+
 ## 33. Future Roadmap (Sprints Futuras)
 
 ### Sprint S03 - Seguranca e Governanca
@@ -1755,3 +1833,98 @@ components:
 - Teste de feature adicionado: `tests/Feature/Dashboard/DashboardMetricsApiTest.php`
 - Dependencias adicionadas: nenhuma
 - Decisao arquitetural: manter um unico service de agregacao (DashboardService) atendendo Inertia e API para evitar duplicacao de regra.
+
+## 34. Atualizacao Incremental - Refatoracao Funcional de Orders (Management Flow)
+
+<!--
+Refatoracao incremental para separar criacao rapida (Dashboard) do gerenciamento completo de pedidos.
+Backend passa a oferecer contrato dedicado para listagem operacional com filtros/paginacao e timeline.
+-->
+
+### Objetivo
+- separar o fluxo de gerenciamento do fluxo de criacao de pedidos
+- manter compatibilidade com contratos existentes de criacao/edicao
+- reforcar rastreabilidade operacional por eventos de timeline
+
+### Alteracoes de dominio e persistencia
+- migration aplicada: `database/migrations/2026_08_02_000015_refactor_orders_management_structure.php`
+- tabela adicionada: `order_timelines`
+- novos campos em `orders`: `order_type`, `discount`, `surcharge`, `notes`
+- indices adicionados em `orders` para gestao operacional:
+  - `orders_user_type_status_created_idx`
+  - `orders_user_total_created_idx`
+
+### Endpoints incrementais de gerenciamento
+- `GET /api/orders/management`: listagem paginada com filtros operacionais
+- `GET /api/orders/{id}/timeline`: timeline do pedido por escopo de usuario
+- `PATCH /api/orders/{id}/associate-customer`: associacao de cliente em pedido existente
+- `PATCH /api/orders/{id}/status`: transicao de status com validacao semantica e trilha de eventos
+
+### Componentes backend adicionados/atualizados
+- `OrderController`: action `management`, `timeline`, `associateCustomer`, `changeStatus` e validacoes de filtros
+- `OrderService`: `getManagementPageByUser`, `getTimelineByUser`, `associateCustomerByUser`, timeline append em eventos de negocio
+- `OrderRepository`: `paginateManagementByUser` com filtros por numero, cliente, operador, status, tipo, data e faixa de valor
+- `OrderTimeline` + `OrderTimelineRepository`
+- `OrderManagementResource` + `OrderTimelineResource`
+
+### Eventos operacionais rastreados em timeline
+- `ORDER_CREATED`
+- `CUSTOMER_ASSOCIATED`
+- `CUSTOMER_UNASSOCIATED`
+- `ITEM_ADDED`
+- `ITEM_REMOVED`
+- `STATUS_CHANGED`
+- `SENT_TO_PRODUCTION`
+- `ORDER_FINALIZED`
+
+### Cobertura de testes atualizada
+- arquivo: `tests/Feature/Order/OrderApiTest.php`
+- cenarios validados:
+  - criacao de pedido com escopo autenticado
+  - listagem por escopo de usuario
+  - listagem de gerenciamento com filtros e paginacao
+  - associacao de cliente com registro de timeline
+  - alteracao de status com eventos operacionais
+  - bloqueio de timeline para pedido fora do escopo do usuario
+
+### Decisao arquitetural
+- Clean Architecture preservada: Controller fino, regra de negocio no Service, leitura/filtro no Repository
+- Feature Layer reforcada para Orders Management sem quebrar contratos legados de `POST/PUT/PATCH /api/orders`
+- separacao funcional consolidada com frontend:
+  - Dashboard: criacao rapida
+  - modulo Orders: gerenciamento operacional
+
+## 35. Fluxo Operacional de Produtos e Pedidos
+
+<!--
+Regra arquitetural para garantir que Produto permaneça independente e que Pedido apenas consuma produtos já cadastrados.
+O cadastro rápido de produto é único, compartilhado entre os fluxos do sistema e não deve ser duplicado por modulo.
+-->
+
+### Objetivo
+- manter Produto como entidade independente do fluxo de Pedido
+- impedir que o fluxo principal de Pedido seja usado como origem de cadastro de Produto
+- garantir um único componente de cadastro rápido de Produto reutilizado pelo sistema inteiro
+
+### Regras de negócio consolidadas
+- Produto é uma entidade independente e pertence ao módulo Produtos
+- Pedido consome produtos previamente cadastrados e ativos
+- o fluxo principal de Pedido não inicia cadastro de produto
+- o cadastro rápido de produto é reutilizado por Dashboard e pelos fluxos operacionais que precisem da mesma funcionalidade
+- nenhum módulo deve criar outra implementação de cadastro de produto
+- todo cadastro rápido deve reutilizar exatamente o mesmo componente e os mesmos contratos de API
+
+### Feature correspondente
+- **FEAT-BE-007 - Cadastro Corporativo de Produtos**
+- escopo: cadastro rápido, modal reutilizável, validação backend, atualização automática das listagens e base preparada para expansão futura
+- contratos relevantes: `GET /api/products/quick-create/options`, `POST /api/products`, `GET /api/products/active`
+
+### Sprint correspondente
+- **S02.2 - Fluxo Operacional de Produtos e Pedidos**
+- objetivo: consolidar a separação entre criação de produto e criação/gestão de pedido
+- foco: garantir que o pedido apenas consuma produtos existentes e que o modal de produto seja compartilhado sem duplicação
+
+### Impacto arquitetural
+- reforço da Feature Layer de Produtos e Orders sem criação de fluxos paralelos
+- preservação do contrato backend atual para produtos e pedidos
+- compatibilidade total com o modal corporativo já consolidado no frontend

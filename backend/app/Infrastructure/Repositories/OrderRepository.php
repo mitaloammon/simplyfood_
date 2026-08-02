@@ -3,6 +3,7 @@
 namespace App\Infrastructure\Repositories;
 
 use App\Domains\Order\Order;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class OrderRepository
@@ -11,7 +12,7 @@ class OrderRepository
 
     private function baseQuery()
     {
-        return $this->model->newQuery()->with(['customer', 'items.product', 'delivery.driver', 'paymentTransactions']);
+        return $this->model->newQuery()->with(['customer', 'user', 'items.product', 'delivery.driver', 'paymentTransactions', 'timelines.changedBy']);
     }
 
     public function create(array $data): Order
@@ -55,6 +56,55 @@ class OrderRepository
         }
 
         return $query->orderByDesc('created_at')->get();
+    }
+
+    public function paginateManagementByUser(int $userId, array $filters = [], int $perPage = 15): LengthAwarePaginator
+    {
+        $query = $this->baseQuery()
+            ->where('user_id', $userId)
+            ->withCount('items');
+
+        if (!empty($filters['order_number'])) {
+            $query->whereKey((int) $filters['order_number']);
+        }
+
+        if (!empty($filters['customer'])) {
+            $query->whereHas('customer', function ($builder) use ($filters) {
+                $builder->where('name', 'like', '%' . trim((string) $filters['customer']) . '%');
+            });
+        }
+
+        if (!empty($filters['operator'])) {
+            $query->whereHas('user', function ($builder) use ($filters) {
+                $builder->where('name', 'like', '%' . trim((string) $filters['operator']) . '%');
+            });
+        }
+
+        if (!empty($filters['status'])) {
+            $query->where('status', strtoupper((string) $filters['status']));
+        }
+
+        if (!empty($filters['order_type'])) {
+            $query->where('order_type', strtoupper((string) $filters['order_type']));
+        }
+
+        if (!empty($filters['date'])) {
+            $query->whereDate('created_at', $filters['date']);
+        }
+
+        if (isset($filters['value_min']) && $filters['value_min'] !== '') {
+            $query->where('total', '>=', (float) $filters['value_min']);
+        }
+
+        if (isset($filters['value_max']) && $filters['value_max'] !== '') {
+            $query->where('total', '<=', (float) $filters['value_max']);
+        }
+
+        if (isset($filters['value']) && $filters['value'] !== '') {
+            $query->where('total', (float) $filters['value']);
+        }
+
+        return $query->orderByDesc('created_at')->paginate($perPage);
     }
 
     public function findByUser(int|string $id, int $userId): ?Order

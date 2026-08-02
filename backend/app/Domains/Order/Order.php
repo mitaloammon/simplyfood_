@@ -16,13 +16,20 @@ class Order extends Model
         'user_id',
         'customer_id',
         'status', // WAITING_PAYMENT, PAID, PREPARING, OUT_FOR_DELIVERY, DELIVERED, CANCELLED
-        'total'
+        'order_type',
+        'total',
+        'discount',
+        'surcharge',
+        'notes',
     ];
 
     protected function casts(): array
     {
         return [
+            'customer_id' => 'integer',
             'total' => 'decimal:2',
+            'discount' => 'decimal:2',
+            'surcharge' => 'decimal:2',
             'created_at' => 'datetime',
             'updated_at' => 'datetime',
             'deleted_at' => 'datetime',
@@ -52,5 +59,10 @@ class Order extends Model
     public function delivery()
     {
         return $this->hasOne(\App\Domains\Delivery\Delivery::class);
+    }
+
+    public function timelines()
+    {
+        return $this->hasMany(OrderTimeline::class);
     }
 }
