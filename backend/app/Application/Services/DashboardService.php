@@ -20,11 +20,13 @@ class DashboardService
 
         $ordersTodayCount = Order::query()
             ->where('user_id', $user->id)
+            ->where('deleted_at', null)
             ->whereBetween('created_at', [$dayStart, $dayEnd])
             ->count();
 
         $revenueToday = (float) Order::query()
             ->where('user_id', $user->id)
+            ->where('deleted_at', null)
             ->whereBetween('created_at', [$dayStart, $dayEnd])
             ->sum('total');
 

@@ -6,6 +6,7 @@ import CustomerForm from '../components/CustomerForm.vue';
 import { CreateCustomerService } from '../services/CreateCustomerService';
 import type { CustomerFormInput } from '../validators/customerSchema';
 import axios from 'axios';
+import { useToastStore } from '@/shared/stores/toast';
 
 type EditableCustomer = {
   id: number;
@@ -26,6 +27,7 @@ const customerApi = new CustomerApi();
 const createCustomerService = new CreateCustomerService(customerApi);
 const route = useRoute();
 const router = useRouter();
+const toastStore = useToastStore();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -118,7 +120,7 @@ const openCreatePanel = async () => {
 
 const closeCreatePanel = () => {
   if (quickCreateMode.value) {
-    router.replace('/customers');
+    router.replace('/dashboard');
     return;
   }
 
@@ -147,11 +149,14 @@ const createCustomer = async (payload: CustomerFormInput) => {
 
     selectedCustomer.value = customers.value.find((item) => item.id === createdCustomer.id) || null;
     successMessage.value = 'Cliente cadastrado com sucesso.';
+    toastStore.success('Cliente cadastrado com sucesso.');
   } catch (error: unknown) {
     if (error instanceof Error) {
       errorMessage.value = error.message;
+      toastStore.error(error.message);
     } else {
       errorMessage.value = 'Erro ao cadastrar cliente.';
+      toastStore.error('Erro ao cadastrar cliente.');
     }
   } finally {
     saving.value = false;
@@ -214,13 +219,16 @@ const saveEdit = async () => {
     await customerApi.update(editingCustomer.value.id, payload);
     await loadCustomers();
     successMessage.value = 'Cliente atualizado com sucesso.';
+    toastStore.success('Cliente atualizado com sucesso.');
     selectedCustomer.value = customers.value.find((item) => item.id === editingCustomer.value?.id) || selectedCustomer.value;
     editingCustomer.value = null;
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       errorMessage.value = error.response?.data?.message || 'Erro ao atualizar cliente.';
+      toastStore.error(error.response?.data?.message || 'Erro ao atualizar cliente.');
     } else {
       errorMessage.value = 'Erro ao atualizar cliente.';
+      toastStore.error('Erro ao atualizar cliente.');
     }
   } finally {
     saving.value = false;
@@ -248,11 +256,14 @@ const removeCustomer = async (customer: CustomerDto) => {
       editingCustomer.value = null;
     }
     successMessage.value = 'Cliente excluido com sucesso.';
+    toastStore.success('Cliente excluido com sucesso.');
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       errorMessage.value = error.response?.data?.message || 'Erro ao excluir cliente.';
+      toastStore.error(error.response?.data?.message || 'Erro ao excluir cliente.');
     } else {
       errorMessage.value = 'Erro ao excluir cliente.';
+      toastStore.error('Erro ao excluir cliente.');
     }
   } finally {
     deletingId.value = null;
@@ -310,6 +321,7 @@ watch(
     <section v-if="!quickCreateMode" class="filter-panel">
       <div class="filter-grid">
         <input v-model="filters.name" class="filter-input" placeholder="Filtrar por nome" />
+        <input v-model="filters.whatsapp" class="filter-input" placeholder="Filtrar por WhatsApp" />
         <input v-model="filters.city" class="filter-input" placeholder="Filtrar por cidade" />
       </div>
     </section>

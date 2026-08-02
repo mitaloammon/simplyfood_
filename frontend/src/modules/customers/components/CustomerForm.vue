@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import axios from 'axios';
 import { customerSchema, type CustomerFormInput } from '../validators/customerSchema';
 import BaseForm from '@/shared/components/BaseForm.vue';
@@ -8,6 +8,7 @@ import BaseButton from '@/shared/components/BaseButton.vue';
 
 const props = defineProps<{
   loading?: boolean;
+  submitLabel?: string;
 }>();
 
 const emit = defineEmits(['submit']);
@@ -28,6 +29,7 @@ const form = ref<CustomerFormInput>({
 });
 
 const errors = ref<Record<string, string>>({});
+const submitButtonLabel = computed(() => props.submitLabel || 'Salvar Cliente');
 
 watch(
   () => form.value.cep,
@@ -170,9 +172,11 @@ const onSubmit = () => {
       </div>
 
       <div class="form-footer">
-        <BaseButton type="submit" :loading="loading" variant="primary">
-          Salvar Cliente
-        </BaseButton>
+        <slot name="footer-actions">
+          <BaseButton type="submit" :loading="loading" variant="primary">
+            {{ submitButtonLabel }}
+          </BaseButton>
+        </slot>
       </div>
     </BaseForm>
   </div>

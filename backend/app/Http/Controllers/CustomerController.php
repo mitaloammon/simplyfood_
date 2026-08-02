@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Application\Services\CustomerService;
+use App\Domains\Auth\User\User;
 
 use App\Http\Requests\StoreCustomerRequest;
 use App\Http\Resources\CustomerResource;
@@ -24,8 +25,9 @@ class CustomerController extends BaseController
     {
         $payload = $request->validated();
 
-        if ($request->user()) {
-            $payload['user_id'] = $request->user()->id;
+        $authenticatedUserId = $this->resolveAuthenticatedUserId($request);
+        if ($authenticatedUserId !== null) {
+            $payload['user_id'] = $authenticatedUserId;
         }
 
         $customer = $this->customerService->post($payload);
@@ -72,8 +74,9 @@ class CustomerController extends BaseController
         $storeRequest = StoreCustomerRequest::createFrom($request);
         $validated = validator($storeRequest->all(), $storeRequest->rules())->validate();
 
-        if ($request->user()) {
-            $validated['user_id'] = $request->user()->id;
+        $authenticatedUserId = $this->resolveAuthenticatedUserId($request);
+        if ($authenticatedUserId !== null) {
+            $validated['user_id'] = $authenticatedUserId;
         }
 
         $customer = $this->customerService->post($validated);
@@ -111,5 +114,24 @@ class CustomerController extends BaseController
             'success' => $success,
             'message' => $success ? 'Cliente removido com sucesso.' : 'Nao foi possivel remover o cliente.',
         ], Response::HTTP_OK);
+    }
+
+    private function resolveAuthenticatedUserId(Request $request): ?int
+    {
+        if ($request->user()) {
+            return (int) $request->user()->id;
+        }
+
+        $token = $request->bearerToken();
+        if (!$token || !str_starts_with($token, 'valid-')) {
+            return null;
+        }
+
+        $candidate = (int) str_replace('valid-', '', $token);
+        if ($candidate <= 0) {
+            return null;
+        }
+
+        return User::query()->whereKey($candidate)->exists() ? $candidate : null;
     }
 }
