@@ -559,6 +559,38 @@ Reutiliza DashboardService para evitar duplicacao de logica de negocio.
 - Dependências: middleware token.valid e auth.system
 - Responsabilidades: agregacao de indicadores e contrato consolidado para UI
 
+##### Atualização incremental - Dashboard Metrics Refinement (S02)
+<!--
+Refinamento evolutivo para aderência ao estágio atual do MVP, sem quebra de contrato HTTP.
+-->
+- Sprint afetada: S02 (Gestão operacional)
+- Feature afetada: FEAT-BE-006 (Dashboard Metrics API)
+- Regras de negócio atualizadas:
+  - métricas consolidadas por usuário autenticado com escopo exclusivo de dados do operador;
+  - substituição da métrica `Tempo Médio Entrega` por `Ticket Médio`;
+  - indicador de pedidos migrado para `Pedidos Ativos` (WAITING_PAYMENT, PAID, PREPARING, OUT_FOR_DELIVERY);
+  - faturamento consolidado em `Faturamento Total` com exclusão de pedidos cancelados.
+- Ajustes arquiteturais:
+  - `DashboardService` deixou de consultar Models diretamente e passou a orquestrar métricas via Repository Layer;
+  - `CustomerRepository` recebeu `countActiveByUser(int $userId)`;
+  - `OrderRepository` recebeu `getDashboardAggregatesByUser(int $userId)` com agregações SQL otimizadas em consulta única.
+- Soft delete e consistência:
+  - métricas aplicam filtro de ativos (`whereNull('deleted_at')`) para entidades com SoftDeletes;
+  - alinhamento com os módulos operacionais de Customers e Orders para evitar fontes divergentes.
+- Performance:
+  - redução de múltiplas consultas por métrica para agregação consolidada no repositório de pedidos;
+  - seleção apenas dos agregados necessários (contagem/soma/média), sem eager loading desnecessário.
+- Endpoints impactados:
+  - `GET /api/dashboard/metrics` (sem alteração de contrato de resposta, apenas atualização semântica dos cards).
+- Data models impactados:
+  - `Customer` (contagem ativa por usuário);
+  - `Order` (agregação por status com exclusão de cancelados e soft deleted).
+- Critérios de aceite atendidos:
+  - dashboard exibe dados reais da base;
+  - escopo do usuário autenticado respeitado;
+  - métrica operacional compatível com funcionalidades do MVP;
+  - regras concentradas em Service + Repository (Clean Architecture).
+
 ### Comentário de arquitetura
 <!--
 Controllers devem permanecer finos; regras de negócio devem residir em services ou use cases.
