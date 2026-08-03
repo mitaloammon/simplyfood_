@@ -73,4 +73,13 @@ class CustomerRepository
             ->whereKey($id)
             ->first();
     }
+
+    public function countActiveByUser(int $userId): int
+    {
+        return $this->model
+            ->newQuery()
+            ->where('user_id', $userId)
+            ->whereNull('deleted_at')
+            ->count();
+    }
 }

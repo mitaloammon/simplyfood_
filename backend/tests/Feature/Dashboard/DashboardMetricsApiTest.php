@@ -4,9 +4,7 @@ namespace Tests\Feature\Dashboard;
 
 use App\Domains\Auth\User\User;
 use App\Domains\Customer\Customer;
-use App\Domains\Delivery\Delivery;
 use App\Domains\Order\Order;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -19,6 +17,10 @@ class DashboardMetricsApiTest extends TestCase
     {
         $user = User::factory()->create([
             'role' => 'ADMIN',
+        ]);
+
+        $anotherUser = User::factory()->create([
+            'role' => 'OPERATOR',
         ]);
 
         Customer::query()->create([
@@ -39,30 +41,55 @@ class DashboardMetricsApiTest extends TestCase
             'phone' => '11777777777',
         ]);
 
+        $softDeletedCustomer = Customer::query()->create([
+            'user_id' => $user->id,
+            'name' => 'Cliente Removido',
+            'phone' => '11666666666',
+        ]);
+        $softDeletedCustomer->delete();
+
         Order::query()->create([
             'user_id' => $user->id,
             'customer_id' => $customer->id,
-            'status' => 'PAID',
-            'total' => 120.00,
-            'created_at' => Carbon::today()->addHours(10),
+            'status' => 'WAITING_PAYMENT',
+            'total' => 50.00,
         ]);
 
-        $orderWithDelivery = Order::query()->create([
+        Order::query()->create([
+            'user_id' => $user->id,
+            'customer_id' => $customer->id,
+            'status' => 'PREPARING',
+            'total' => 80.00,
+        ]);
+
+        Order::query()->create([
             'user_id' => $user->id,
             'customer_id' => $customer->id,
             'status' => 'DELIVERED',
-            'total' => 80.50,
-            'created_at' => Carbon::today()->addHours(12),
+            'total' => 120.00,
         ]);
 
-        $delivery = Delivery::query()->create([
-            'order_id' => $orderWithDelivery->id,
-            'status' => 'DELIVERED',
-            'delivered_at' => Carbon::now()->addMinutes(30),
+        Order::query()->create([
+            'user_id' => $user->id,
+            'customer_id' => $customer->id,
+            'status' => 'CANCELLED',
+            'total' => 40.00,
         ]);
 
-        $delivery->created_at = Carbon::now();
-        $delivery->save();
+        $softDeletedOrder = Order::query()->create([
+            'user_id' => $user->id,
+            'customer_id' => $customer->id,
+            'status' => 'PAID',
+            'total' => 70.00,
+        ]);
+        $softDeletedOrder->delete();
+
+        Order::query()->create([
+            'user_id' => $anotherUser->id,
+            'customer_id' => null,
+            'status' => 'PAID',
+            'total' => 999.00,
+        ]);
 
         $response = $this
             ->withHeaders(['Authorization' => 'Bearer valid-' . $user->id])
@@ -82,11 +109,8 @@ class DashboardMetricsApiTest extends TestCase
         $metrics = collect($response->json('data.metrics'))->keyBy('key');
 
         $this->assertSame('3', $metrics->get('customers')['value']);
-        $this->assertSame('2', $metrics->get('orders_today')['value']);
-        $this->assertSame('R$ 200,50', $metrics->get('revenue_today')['value']);
-
-        $deliveryAverage = $metrics->get('delivery_avg')['value'];
-        $this->assertStringEndsWith(' min', $deliveryAverage);
-        $this->assertGreaterThanOrEqual(0, (int) str_replace(' min', '', $deliveryAverage));
+        $this->assertSame('2', $metrics->get('orders_active')['value']);
+        $this->assertSame('R$ 250,00', $metrics->get('revenue_total')['value']);
+        $this->assertSame('R$ 83,33', $metrics->get('average_ticket')['value']);
     }
 }

@@ -111,4 +111,31 @@ class OrderRepository
     {
         return $this->baseQuery()->where('user_id', $userId)->whereKey($id)->first();
     }
+
+    public function getDashboardAggregatesByUser(int $userId): array
+    {
+        $activeStatuses = ['WAITING_PAYMENT', 'PAID', 'PREPARING', 'OUT_FOR_DELIVERY'];
+
+        $bindings = implode(',', array_fill(0, count($activeStatuses), '?'));
+
+        $result = $this->model
+            ->newQuery()
+            ->selectRaw(
+                "
+                SUM(CASE WHEN status IN ({$bindings}) THEN 1 ELSE 0 END) AS active_orders,
+                COALESCE(SUM(CASE WHEN status <> 'CANCELLED' THEN total ELSE 0 END), 0) AS revenue_total,
+                COALESCE(AVG(CASE WHEN status <> 'CANCELLED' THEN total END), 0) AS average_ticket
+                ",
+                $activeStatuses
+            )
+            ->where('user_id', $userId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        return [
+            'active_orders' => (int) ($result?->active_orders ?? 0),
+            'revenue_total' => (float) ($result?->revenue_total ?? 0),
+            'average_ticket' => (float) ($result?->average_ticket ?? 0),
+        ];
+    }
 }

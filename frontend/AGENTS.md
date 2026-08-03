@@ -282,6 +282,31 @@ No estado atual os indicadores são locais e servem como baseline visual.
 - Dependências: auth store, apiClient (axios)
 - Responsabilidades: carregar métricas reais com loading, erro e atualização reativa
 
+##### Atualização incremental - Dashboard Metrics Refinement (F02)
+<!--
+Refino incremental para manter o Dashboard aderente ao papel de visão gerencial e evitar duplicidade de fluxo operacional.
+-->
+- Sprint afetada: F02 (Business Modules)
+- Feature afetada: FEAT-FE-003 (Dashboard)
+- Regras de negócio atualizadas:
+  - ação rápida `Novo Pedido` removida do Dashboard por redundância;
+  - criação/gerenciamento de pedidos permanece exclusivamente no módulo lateral `Pedidos`;
+  - dashboard mantém ações rápidas de `Novo Cliente` e `Novo Produto`.
+- Integração Backend -> Frontend atualizada:
+  - cards passam a consumir chaves de métricas refinadas (`customers`, `orders_active`, `revenue_total`, `average_ticket`);
+  - frontend continua sem cálculo de negócio local, apenas renderização do payload da API.
+- Ajustes arquiteturais:
+  - `DashboardPage.vue` simplificada para evitar duplicidade de fluxo de pedidos;
+  - modal de criação rápida de produto preservado e mantido independente;
+  - atualização automática das métricas após criação rápida de produto e cliente via `loadMetrics()`.
+- Compatibilidade e contratos:
+  - sem mudança no endpoint consumido (`GET /api/dashboard/metrics`);
+  - sem alteração de autenticação, client HTTP ou estrutura modular por feature.
+- Critérios de aceite atendidos:
+  - Dashboard com indicadores reais e consistentes;
+  - remoção de ação redundante sem regressão dos módulos operacionais;
+  - atualização reativa das métricas após ações diretas no Dashboard.
+
 #### Feature FEAT-FE-004 - Orders Management
 <!--
 Feature responsável pelo gerenciamento de pedidos no ambiente autenticado.

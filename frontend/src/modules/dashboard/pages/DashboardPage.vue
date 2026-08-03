@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useAuthStore } from '@/shared/stores/auth';
 import { useToastStore } from '@/shared/stores/toast';
 import { useDashboardMetrics } from '../composables/useDashboardMetrics';
 import CustomerForm from '@/modules/customers/components/CustomerForm.vue';
 import { CreateCustomerService } from '@/modules/customers/services/CreateCustomerService';
-import { CustomerApi, type CreateCustomerDto, type CustomerDto } from '@/modules/customers/api/CustomerApi';
+import { CustomerApi, type CreateCustomerDto } from '@/modules/customers/api/CustomerApi';
 import type { CustomerFormInput } from '@/modules/customers/validators/customerSchema';
-import { OrderApi, type OrderPayload } from '@/modules/orders/api/OrderApi';
 import ProductQuickCreateModal from '@/modules/products/components/ProductQuickCreateModal.vue';
 import {
   ProductApi,
   type CreateProductPayload,
-  type ProductDto,
   type ProductQuickCreateDefaults,
   type ProductQuickCreateOptions,
 } from '@/modules/products/api/ProductApi';
@@ -23,31 +21,19 @@ const toastStore = useToastStore();
 const { loading, errorMessage, metrics, user, loadMetrics } = useDashboardMetrics();
 const customerApi = new CustomerApi();
 const createCustomerService = new CreateCustomerService(customerApi);
-const orderApi = new OrderApi();
 const productApi = new ProductApi();
 
 const customerModalVisible = ref(false);
-const orderModalVisible = ref(false);
 const customerModalCardRef = ref<HTMLElement | null>(null);
-const orderModalCardRef = ref<HTMLElement | null>(null);
 
 const customerSaving = ref(false);
 const customerFormKey = ref(0);
 
-const orderSaving = ref(false);
 const creatingProduct = ref(false);
 const productQuickCreateModalVisible = ref(false);
 const productQuickCreateFieldErrors = ref<Record<string, string>>({});
 const productQuickCreateError = ref('');
-const customers = ref<CustomerDto[]>([]);
-const products = ref<ProductDto[]>([]);
 const productQuickCreateOptions = ref<ProductQuickCreateOptions | null>(null);
-
-const orderForm = reactive({
-  customer_id: 0,
-  status: 'WAITING_PAYMENT',
-  items: [{ product_id: null as number | null, quantity: 1, price: 0 }],
-});
 
 const productQuickCreateDefaults = computed<ProductQuickCreateDefaults>(() => {
   if (productQuickCreateOptions.value?.defaults) {
@@ -82,15 +68,12 @@ const welcomeName = computed(() => {
 
 const metricColorMap: Record<string, string> = {
   customers: '#3182ce',
-  orders_today: '#38a169',
-  revenue_today: '#dd6b20',
-  delivery_avg: '#e53e3e',
+  orders_active: '#38a169',
+  revenue_total: '#dd6b20',
+  average_ticket: '#e53e3e',
 };
 
 const resolveMetricColor = (key: string): string => metricColorMap[key] || '#94a3b8';
-
-const orderSubtotal = computed(() => orderForm.items.reduce((sum, item) => sum + item.quantity * item.price, 0));
-const orderTotal = computed(() => Number(orderSubtotal.value.toFixed(2)));
 
 const mapFormToCreateDto = (form: CustomerFormInput): CreateCustomerDto => ({
   name: form.name,
@@ -106,37 +89,6 @@ const mapFormToCreateDto = (form: CustomerFormInput): CreateCustomerDto => ({
   city: form.city || undefined,
   state: form.state || undefined,
 });
-
-const resetOrderForm = () => {
-  orderForm.customer_id = 0;
-  orderForm.status = 'WAITING_PAYMENT';
-  orderForm.items = [{ product_id: null, quantity: 1, price: 0 }];
-  productQuickCreateFieldErrors.value = {};
-  productQuickCreateError.value = '';
-};
-
-const parseBrazilianCurrency = (value: string): number => {
-  const digits = value.replace(/\D/g, '');
-  if (!digits) {
-    return 0;
-  }
-
-  return Number(digits) / 100;
-};
-
-const formatBrazilianCurrency = (value: number): string => {
-  return Number(value || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-};
-
-const onItemPriceInput = (index: number, event: Event) => {
-  const target = event.target as HTMLInputElement;
-  const parsedValue = parseBrazilianCurrency(target.value);
-  orderForm.items[index].price = parsedValue;
-  target.value = formatBrazilianCurrency(parsedValue);
-};
 
 const toMultipartPayload = (payload: CreateProductPayload): FormData => {
   const formData = new FormData();
@@ -157,7 +109,7 @@ const toMultipartPayload = (payload: CreateProductPayload): FormData => {
   return formData;
 };
 
-const isAnyModalOpen = computed(() => customerModalVisible.value || orderModalVisible.value);
+const isAnyModalOpen = computed(() => customerModalVisible.value || productQuickCreateModalVisible.value);
 
 const lockBodyScroll = () => {
   document.body.style.overflow = 'hidden';
@@ -172,13 +124,13 @@ const handleEscapeKey = (event: KeyboardEvent) => {
     return;
   }
 
-  if (orderModalVisible.value) {
-    closeOrderModal();
+  if (customerModalVisible.value) {
+    closeCustomerModal();
     return;
   }
 
-  if (customerModalVisible.value) {
-    closeCustomerModal();
+  if (productQuickCreateModalVisible.value) {
+    productQuickCreateModalVisible.value = false;
   }
 };
 
@@ -201,42 +153,6 @@ const openProductQuickCreateModal = async () => {
   productQuickCreateModalVisible.value = true;
 };
 
-const openOrderModal = async () => {
-  resetOrderForm();
-  orderModalVisible.value = true;
-
-  try {
-    const [customersResponse, productsResponse] = await Promise.all([
-      customerApi.getAll(),
-      productApi.getActive(),
-      loadProductQuickCreateOptions(),
-    ]);
-    customers.value = customersResponse.data.data || [];
-    products.value = productsResponse.data.data || [];
-    orderForm.customer_id = customers.value[0]?.id || 0;
-
-    if (!orderForm.customer_id) {
-      toastStore.error('Cadastre um cliente antes de criar um pedido.');
-    }
-
-    await nextTick();
-    orderModalCardRef.value?.focus();
-  } catch (error: unknown) {
-    orderModalVisible.value = false;
-    if (axios.isAxiosError(error)) {
-      toastStore.error(error.response?.data?.message || 'Erro ao carregar dados para novo pedido.');
-    } else {
-      toastStore.error('Erro ao carregar dados para novo pedido.');
-    }
-  }
-};
-
-const closeOrderModal = () => {
-  orderModalVisible.value = false;
-  productQuickCreateModalVisible.value = false;
-  resetOrderForm();
-};
-
 const createCustomerFromDashboard = async (payload: CustomerFormInput) => {
   customerSaving.value = true;
 
@@ -256,37 +172,6 @@ const createCustomerFromDashboard = async (payload: CustomerFormInput) => {
   }
 };
 
-const addOrderItem = () => {
-  orderForm.items.push({ product_id: null, quantity: 1, price: 0 });
-};
-
-const removeOrderItem = (index: number) => {
-  orderForm.items.splice(index, 1);
-  if (orderForm.items.length === 0) {
-    addOrderItem();
-  }
-};
-
-const onOrderProductChange = (index: number) => {
-  const item = orderForm.items[index];
-  if (!item.product_id) {
-    item.price = 0;
-    return;
-  }
-
-  const product = products.value.find((candidate) => candidate.id === item.product_id);
-  if (product) {
-    item.price = Number((product.preco_venda ?? product.preco) || 0);
-  }
-};
-
-const openProductQuickCreateModalFromOrder = async () => {
-  await loadProductQuickCreateOptions();
-  productQuickCreateFieldErrors.value = {};
-  productQuickCreateError.value = '';
-  productQuickCreateModalVisible.value = true;
-};
-
 const createProductFromQuickCreate = async (payload: CreateProductPayload) => {
   productQuickCreateFieldErrors.value = {};
   productQuickCreateError.value = '';
@@ -294,21 +179,11 @@ const createProductFromQuickCreate = async (payload: CreateProductPayload) => {
   creatingProduct.value = true;
 
   try {
-    const response = await productApi.create(toMultipartPayload(payload));
-    const createdProduct = response.data.data;
-    const productsResponse = await productApi.getActive();
-    products.value = productsResponse.data.data || [];
-
-    const targetItem = orderForm.items.find((item) => item.product_id === null) || orderForm.items[0];
-    if (targetItem) {
-      targetItem.product_id = Number(createdProduct.id);
-      targetItem.price = Number((createdProduct.preco_venda ?? createdProduct.preco) || 0);
-    }
+    await productApi.create(toMultipartPayload(payload));
 
     productQuickCreateModalVisible.value = false;
-    toastStore.success(orderModalVisible.value
-      ? 'Produto cadastrado e selecionado no pedido.'
-      : 'Produto cadastrado com sucesso.');
+    toastStore.success('Produto cadastrado com sucesso.');
+    await loadMetrics();
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
       productQuickCreateError.value = error.response?.data?.message || 'Erro ao cadastrar produto.';
@@ -323,53 +198,6 @@ const createProductFromQuickCreate = async (payload: CreateProductPayload) => {
     }
   } finally {
     creatingProduct.value = false;
-  }
-};
-
-const saveOrderFromDashboard = async () => {
-  if (!orderForm.customer_id) {
-    toastStore.error('Cadastre um cliente antes de criar um pedido.');
-    return;
-  }
-
-  const payloadItems = orderForm.items.filter((item) => item.product_id !== null);
-  if (payloadItems.length === 0) {
-    toastStore.error('Adicione pelo menos um item ao pedido.');
-    return;
-  }
-
-  const hasInvalidItem = payloadItems.some((item) => item.quantity <= 0 || item.price < 0);
-  if (hasInvalidItem) {
-    toastStore.error('Itens do pedido possuem quantidade ou preço inválidos.');
-    return;
-  }
-
-  orderSaving.value = true;
-
-  try {
-    const payload: OrderPayload = {
-      customer_id: orderForm.customer_id,
-      status: orderForm.status,
-      items: payloadItems.map((item) => ({
-        product_id: Number(item.product_id),
-        quantity: Number(item.quantity),
-        price: Number(item.price),
-      })),
-      total: orderTotal.value,
-    };
-
-    await orderApi.create(payload);
-    closeOrderModal();
-    toastStore.success('Pedido criado com sucesso.');
-    await loadMetrics();
-  } catch (error: unknown) {
-    if (axios.isAxiosError(error)) {
-      toastStore.error(error.response?.data?.message || 'Erro ao salvar pedido.');
-    } else {
-      toastStore.error('Erro ao salvar pedido.');
-    }
-  } finally {
-    orderSaving.value = false;
   }
 };
 
@@ -439,13 +267,6 @@ onBeforeUnmount(() => {
             <p>Inicia o cadastro rápido de um novo produto.</p>
           </div>
         </button>
-
-        <button type="button" class="action-card" @click="openOrderModal">
-          <div class="action-details">
-            <h3>Novo Pedido</h3>
-            <p>Inicia o fluxo de criacao de um novo pedido.</p>
-          </div>
-        </button>
       </div>
     </div>
 
@@ -465,53 +286,6 @@ onBeforeUnmount(() => {
             </div>
           </template>
         </CustomerForm>
-      </div>
-    </div>
-
-    <div v-if="orderModalVisible" class="modal-overlay" @click.self="closeOrderModal">
-      <div ref="orderModalCardRef" class="modal-card" role="dialog" aria-modal="true" aria-label="Novo pedido" tabindex="-1">
-        <div class="modal-head">
-          <h3>Novo Pedido</h3>
-        </div>
-
-        <div class="items-header">
-          <h3>Itens do Pedido</h3>
-          <div class="inline-actions">
-            <button type="button" class="btn-inline" @click="openProductQuickCreateModalFromOrder">Cadastrar Produto Rapidamente</button>
-            <button type="button" class="btn-inline" @click="addOrderItem">Adicionar Item</button>
-          </div>
-        </div>
-
-        <div v-if="products.length === 0" class="empty-products">Nenhum produto ativo encontrado. Cadastre um produto para continuar.</div>
-
-        <div class="items-list">
-          <div v-for="(item, index) in orderForm.items" :key="index" class="item-row">
-            <select v-model.number="item.product_id" class="modal-input" @change="onOrderProductChange(index)">
-              <option :value="null">Produto...</option>
-              <option v-for="product in products" :key="product.id" :value="product.id">
-                {{ product.nome }}
-              </option>
-            </select>
-
-            <input v-model.number="item.quantity" class="modal-input" type="number" min="1" placeholder="Quantidade" />
-            <input
-              class="modal-input"
-              type="text"
-              inputmode="decimal"
-              placeholder="Preco"
-              :value="formatBrazilianCurrency(item.price)"
-              @input="onItemPriceInput(index, $event)"
-            />
-            <button type="button" class="btn-danger" @click="removeOrderItem(index)">Remover</button>
-          </div>
-        </div>
-
-        <div class="modal-actions">
-          <button type="button" class="btn-muted" @click="closeOrderModal" :disabled="orderSaving">Cancelar</button>
-          <button type="button" class="btn-primary" @click="saveOrderFromDashboard" :disabled="orderSaving">
-            {{ orderSaving ? 'Salvando...' : 'Salvar' }}
-          </button>
-        </div>
       </div>
     </div>
 
@@ -735,7 +509,7 @@ onBeforeUnmount(() => {
 
 .actions-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
 }
 
