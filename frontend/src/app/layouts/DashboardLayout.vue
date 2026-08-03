@@ -32,6 +32,22 @@ const handleLogout = () => {
         <router-link to="/orders" class="nav-item" active-class="active">
           <span class="nav-label">Pedidos</span>
         </router-link>
+
+        <router-link to="/cash-register" class="nav-item" active-class="active">
+          <span class="nav-label">Caixa</span>
+        </router-link>
+
+        <router-link to="/tables" class="nav-item" active-class="active">
+          <span class="nav-label">Mesas</span>
+        </router-link>
+
+        <router-link to="/commands" class="nav-item" active-class="active">
+          <span class="nav-label">Comandas</span>
+        </router-link>
+
+        <router-link to="/recipes" class="nav-item" active-class="active">
+          <span class="nav-label">Receitas</span>
+        </router-link>
       </nav>
 
       <div class="sidebar-footer">

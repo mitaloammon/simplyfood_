@@ -480,6 +480,68 @@ Sem necessidade de alteração no consumo da API pelo frontend.
 - products, orders, categories, deliveries, financial, payments, tickets, users, settings
 - Observação: o router ativo já contempla auth, dashboard, customers e orders.
 
+#### Feature FEAT-FE-006 - Cash Register
+<!--
+Módulo de caixa integrado de forma incremental, sem alterar os fluxos existentes do MVP.
+-->
+- Objetivo: habilitar visibilidade e operações iniciais de caixa no frontend
+- Escopo: visualização de caixa atual, histórico e operações de abertura/movimentação/fechamento via adapter
+- Fluxo: CashRegisterPage -> CashRegisterApi -> apiClient -> `/api/cash/*`
+- Componentes envolvidos: `CashRegisterPage.vue`
+- Services: `CashRegisterApi`
+- Interfaces: `CashRegisterDto`, `CashTransactionDto`
+- Rotas relacionadas: `/cash-register`
+
+#### Feature FEAT-FE-007 - Tables
+<!--
+Módulo de mesas para atendimento presencial.
+-->
+- Objetivo: disponibilizar visão inicial de mesas e status operacional
+- Escopo: listagem e integração para criação/alteração de status
+- Fluxo: TablesPage -> TableApi -> apiClient -> `/api/tables*`
+- Componentes envolvidos: `TablesPage.vue`
+- Services: `TableApi`
+- Interfaces: `RestaurantTableDto`
+- Rotas relacionadas: `/tables`
+
+#### Feature FEAT-FE-008 - Commands
+<!--
+Módulo de comanda desacoplado do gerenciamento de pedidos.
+-->
+- Objetivo: separar atendimento em comandas vinculadas às mesas
+- Escopo: listagem, abertura e atualização de status de comandas
+- Fluxo: CommandsPage -> CommandApi -> apiClient -> `/api/commands*`
+- Componentes envolvidos: `CommandsPage.vue`
+- Services: `CommandApi`
+- Interfaces: `CommandDto`
+- Rotas relacionadas: `/commands`
+
+#### Feature FEAT-FE-009 - Recipes and Ingredients
+<!--
+Módulo de fichas técnicas para base de controle de estoque.
+-->
+- Objetivo: fornecer camada de integração para ingredientes, receitas e consumo
+- Escopo: leitura e criação de ingredientes/receitas; integração de consumo
+- Fluxo: RecipesPage -> RecipeApi -> apiClient -> `/api/ingredients*` e `/api/recipes*`
+- Componentes envolvidos: `RecipesPage.vue`
+- Services: `RecipeApi`
+- Interfaces: `IngredientDto`, `RecipeDto`
+- Rotas relacionadas: `/recipes`
+
+##### Atualização incremental - Sprint 3.1.0 Professional Expansion
+- Sprint afetada: F03 (Professional Expansion)
+- Ajustes de navegação:
+  - `DashboardLayout.vue` recebeu entradas de menu para `Caixa`, `Mesas`, `Comandas` e `Receitas`.
+  - `router/index.ts` recebeu rotas protegidas para os novos módulos.
+- Camada de integração adicionada:
+  - `src/modules/cash-register/api/CashRegisterApi.ts`
+  - `src/modules/tables/api/TableApi.ts`
+  - `src/modules/commands/api/CommandApi.ts`
+  - `src/modules/recipes/api/RecipeApi.ts`
+- Compatibilidade preservada:
+  - nenhum contrato de Auth, Dashboard, Customers, Products ou Orders foi quebrado;
+  - módulos novos consomem contratos backend adicionais via adapters dedicados.
+
 ### Comentário de arquitetura
 <!--
 Controllers e páginas não devem concentrar regra de negócio.

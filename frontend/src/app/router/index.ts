@@ -41,6 +41,26 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/modules/orders/pages/OrderPage.vue'),
       },
       {
+        path: 'cash-register',
+        name: 'cash-register',
+        component: () => import('@/modules/cash-register/pages/CashRegisterPage.vue'),
+      },
+      {
+        path: 'tables',
+        name: 'tables',
+        component: () => import('@/modules/tables/pages/TablesPage.vue'),
+      },
+      {
+        path: 'commands',
+        name: 'commands',
+        component: () => import('@/modules/commands/pages/CommandsPage.vue'),
+      },
+      {
+        path: 'recipes',
+        name: 'recipes',
+        component: () => import('@/modules/recipes/pages/RecipesPage.vue'),
+      },
+      {
         path: 'products/:id/edit',
         name: 'product-advanced-edit',
         component: () => import('@/modules/products/pages/ProductAdvancedEditPage.vue'),

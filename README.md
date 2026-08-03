@@ -18,6 +18,9 @@ Escopo funcional atual:
 - pedidos por escopo de usuario autenticado
 - produtos ativos e criacao de produtos
 - metricas de dashboard por usuario autenticado
+- modulo de caixa (abertura, movimentacao, fechamento e historico)
+- modulo de mesas e comandas para atendimento presencial
+- modulo de fichas tecnicas com ingredientes e consumo de estoque
 
 ## Arquitetura
 
@@ -158,6 +161,15 @@ Modelo atual inclui:
 - payment_transactions
 - tickets
 - whatsapp_messages
+- cash_registers
+- cash_transactions
+- cash_closings
+- restaurant_tables
+- commands
+- ingredients
+- recipes
+- recipe_items
+- stock_movements
 - tabelas de infraestrutura (jobs/cache/sessions)
 
 ## Migracoes
@@ -172,6 +184,9 @@ Migracoes relevantes de escopo/performance ja aplicadas:
 - user_id em customers
 - user_id em orders
 - indices para dashboard e listagens operacionais
+- estrutura financeira desacoplada (cash_registers, cash_transactions, cash_closings)
+- estrutura de atendimento presencial (restaurant_tables, commands)
+- estrutura de ficha tecnica e estoque (ingredients, recipes, recipe_items, stock_movements)
 
 ## Seeders
 
@@ -317,6 +332,29 @@ Nao. A interface principal usa SPA em [frontend](frontend), e existe fluxo Inert
 
 ### Quais modulos estao totalmente ativos no fluxo principal?
 Auth, Dashboard, Customers e Orders.
+
+### Quais modulos novos foram adicionados na expansao profissional?
+Cash Register, Tables, Commands e Recipes/Ingredients, todos em camadas desacopladas e sem alterar os fluxos legados.
+
+## Endpoints Novos (Expansao 3.1.0)
+
+- `POST /api/cash/open`
+- `POST /api/cash/transaction`
+- `POST /api/cash/close`
+- `GET /api/cash/current`
+- `GET /api/cash/history`
+- `GET /api/tables`
+- `POST /api/tables`
+- `PATCH /api/tables/{id}/status`
+- `GET /api/commands`
+- `POST /api/commands`
+- `PATCH /api/commands/{id}/status`
+- `GET /api/ingredients`
+- `POST /api/ingredients`
+- `GET /api/recipes`
+- `POST /api/recipes`
+- `POST /api/recipes/{recipeId}/items`
+- `POST /api/recipes/{recipeId}/consume`
 
 ## Troubleshooting
 

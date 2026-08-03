@@ -591,6 +591,108 @@ Refinamento evolutivo para aderência ao estágio atual do MVP, sem quebra de co
   - métrica operacional compatível com funcionalidades do MVP;
   - regras concentradas em Service + Repository (Clean Architecture).
 
+#### Feature FEAT-BE-007 - Cash Register
+<!--
+Expansão incremental para módulo financeiro desacoplado, sem alteração dos fluxos existentes de pedidos/dashboard.
+-->
+- Objetivo: habilitar ciclo operacional de caixa (abertura, movimentações, fechamento e histórico)
+- Escopo: `POST /api/cash/open`, `POST /api/cash/transaction`, `POST /api/cash/close`, `GET /api/cash/current`, `GET /api/cash/history`
+- Fluxo: route -> CashRegisterController -> CashRegisterService -> CashRegisterRepository/CashTransactionRepository/CashClosingRepository -> models/resources
+- Componentes envolvidos: CashRegisterController, CashRegisterService, OpenCashRegisterRequest, StoreCashTransactionRequest, CloseCashRegisterRequest
+- Services: CashRegisterService
+- Controllers: CashRegisterController
+- Requests: OpenCashRegisterRequest, StoreCashTransactionRequest, CloseCashRegisterRequest
+- Models: CashRegister, CashTransaction, CashClosing
+- Repositories: CashRegisterRepository, CashTransactionRepository, CashClosingRepository
+- Policies: CashRegisterPolicy
+- Rotas relacionadas: `/api/cash/*` (protegidas por `token.valid` + `auth.system`)
+- Regras de negócio implementadas:
+  - um operador não pode abrir mais de um caixa simultaneamente;
+  - fechamento persiste auditoria com valor esperado, declarado e diferença;
+  - movimentações atualizam saldo atual com transação de banco.
+
+#### Feature FEAT-BE-008 - Restaurant Tables
+<!--
+Módulo desacoplado de atendimento presencial por mesa.
+-->
+- Objetivo: gerenciar mesas com status operacional
+- Escopo: listar mesas, criar mesa, atualizar status
+- Fluxo: route -> RestaurantTableController -> RestaurantTableService -> RestaurantTableRepository -> model/resource
+- Componentes envolvidos: RestaurantTableController, RestaurantTableService, StoreRestaurantTableRequest, UpdateRestaurantTableStatusRequest
+- Services: RestaurantTableService
+- Controllers: RestaurantTableController
+- Requests: StoreRestaurantTableRequest, UpdateRestaurantTableStatusRequest
+- Models: RestaurantTable
+- Repositories: RestaurantTableRepository
+- Policies: RestaurantTablePolicy
+- Rotas relacionadas: `GET /api/tables`, `POST /api/tables`, `PATCH /api/tables/{id}/status`
+
+#### Feature FEAT-BE-009 - Commands
+<!--
+Módulo de comanda separado do fluxo de pedidos do MVP.
+-->
+- Objetivo: controlar atendimento por comanda vinculada à mesa
+- Escopo: abrir comanda, listar comandas, atualizar status
+- Fluxo: route -> CommandController -> CommandService -> CommandRepository/RestaurantTableRepository -> model/resource
+- Componentes envolvidos: CommandController, CommandService, StoreCommandRequest, UpdateCommandStatusRequest
+- Services: CommandService
+- Controllers: CommandController
+- Requests: StoreCommandRequest, UpdateCommandStatusRequest
+- Models: CommandTicket
+- Repositories: CommandRepository
+- Policies: CommandPolicy
+- Rotas relacionadas: `GET /api/commands`, `POST /api/commands`, `PATCH /api/commands/{id}/status`
+- Regras de negócio implementadas:
+  - abertura permitida apenas com mesa em status `LIVRE` ou `RESERVADA`;
+  - ao abrir comanda, mesa passa para `OCUPADA`;
+  - ao fechar comanda, mesa retorna para `LIVRE`.
+
+#### Feature FEAT-BE-010 - Recipes and Stock Movements
+<!--
+Módulo de ficha técnica com baixa automática de estoque, sem acoplar no fluxo atual de orders.
+-->
+- Objetivo: preparar base de BOM para consumo de ingredientes
+- Escopo: cadastro de ingredientes, cadastro de receitas, itens de receita e consumo com baixa de estoque
+- Fluxo: route -> RecipeController -> RecipeService -> IngredientRepository/RecipeRepository/RecipeItemRepository/StockMovementRepository -> models/resources
+- Componentes envolvidos: RecipeController, RecipeService, StoreIngredientRequest, StoreRecipeRequest, StoreRecipeItemRequest, ConsumeRecipeRequest
+- Services: RecipeService
+- Controllers: RecipeController
+- Requests: StoreIngredientRequest, StoreRecipeRequest, StoreRecipeItemRequest, ConsumeRecipeRequest
+- Models: Ingredient, Recipe, RecipeItem, StockMovement
+- Repositories: IngredientRepository, RecipeRepository, RecipeItemRepository, StockMovementRepository
+- Policies: IngredientPolicy, RecipePolicy
+- Rotas relacionadas:
+  - `GET /api/ingredients`, `POST /api/ingredients`
+  - `GET /api/recipes`, `POST /api/recipes`
+  - `POST /api/recipes/{recipeId}/items`
+  - `POST /api/recipes/{recipeId}/consume`
+- Regras de negócio implementadas:
+  - proibição de estoque negativo no consumo de receita;
+  - consumo gera movimentação de estoque com saldo antes/depois em transação.
+
+##### Atualização incremental - Sprint 3.1.0 Professional Expansion
+- Sprint afetada: S03 (Professional Expansion)
+- Dependências adicionadas: nenhuma nova dependência externa instalada nesta etapa.
+- Migrations adicionadas:
+  - `2026_08_03_000100_create_cash_registers_table.php`
+  - `2026_08_03_000110_create_cash_transactions_table.php`
+  - `2026_08_03_000120_create_cash_closings_table.php`
+  - `2026_08_03_000130_create_restaurant_tables_table.php`
+  - `2026_08_03_000140_create_commands_table.php`
+  - `2026_08_03_000150_create_ingredients_table.php`
+  - `2026_08_03_000160_create_recipes_table.php`
+  - `2026_08_03_000170_create_recipe_items_table.php`
+  - `2026_08_03_000180_create_stock_movements_table.php`
+- Soft delete e índices:
+  - todas as novas tabelas transacionais incluem `softDeletes()`;
+  - índices de `user_id`, `created_at`, `updated_at`, `deleted_at` e compostos por contexto operacional aplicados;
+  - FKs com `constrained(...)` em todas as relações obrigatórias.
+- Cobertura de testes adicionada:
+  - `tests/Feature/CashRegister/CashRegisterApiTest.php`
+  - `tests/Feature/Tables/RestaurantTableApiTest.php`
+  - `tests/Feature/Commands/CommandApiTest.php`
+  - `tests/Feature/Recipe/RecipeApiTest.php`
+
 ### Comentário de arquitetura
 <!--
 Controllers devem permanecer finos; regras de negócio devem residir em services ou use cases.

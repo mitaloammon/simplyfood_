@@ -1,10 +1,14 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CashRegisterController;
+use App\Http\Controllers\CommandController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardMetricsController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\RecipeController;
+use App\Http\Controllers\RestaurantTableController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', function () {
@@ -55,5 +59,37 @@ Route::middleware(['token.valid', 'auth.system:ADMIN,MANAGER,OPERATOR'])->group(
         Route::patch('/{id}/associate-customer', [OrderController::class, 'associateCustomer']);
         Route::patch('/{id}/status', [OrderController::class, 'changeStatus']);
         Route::delete('/{id}', [OrderController::class, 'deleted']);
+    });
+
+    Route::prefix('cash')->group(function () {
+        Route::post('/open', [CashRegisterController::class, 'open']);
+        Route::post('/transaction', [CashRegisterController::class, 'transaction']);
+        Route::post('/close', [CashRegisterController::class, 'close']);
+        Route::get('/history', [CashRegisterController::class, 'history']);
+        Route::get('/current', [CashRegisterController::class, 'current']);
+    });
+
+    Route::prefix('tables')->group(function () {
+        Route::get('/', [RestaurantTableController::class, 'index']);
+        Route::post('/', [RestaurantTableController::class, 'store']);
+        Route::patch('/{id}/status', [RestaurantTableController::class, 'updateStatus']);
+    });
+
+    Route::prefix('commands')->group(function () {
+        Route::get('/', [CommandController::class, 'index']);
+        Route::post('/', [CommandController::class, 'store']);
+        Route::patch('/{id}/status', [CommandController::class, 'updateStatus']);
+    });
+
+    Route::prefix('recipes')->group(function () {
+        Route::get('/', [RecipeController::class, 'listRecipes']);
+        Route::post('/', [RecipeController::class, 'storeRecipe']);
+        Route::post('/{recipeId}/items', [RecipeController::class, 'addRecipeItem']);
+        Route::post('/{recipeId}/consume', [RecipeController::class, 'consume']);
+    });
+
+    Route::prefix('ingredients')->group(function () {
+        Route::get('/', [RecipeController::class, 'listIngredients']);
+        Route::post('/', [RecipeController::class, 'storeIngredient']);
     });
 });
