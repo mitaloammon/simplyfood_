@@ -1,0 +1,20 @@
+# Override WSL.
+# app sobe como root só no entrypoint (php-fpm exige isso),
+# depois os workers usam www-data alinhado a HOST_UID.
+# storage fica no bind mount do host, não em volume root.
+
+services:
+  app:
+    environment:
+      HOME: /tmp
+      HOST_UID: ${HOST_UID:-1000}
+      HOST_GID: ${HOST_GID:-1000}
+    volumes:
+      - ./backend:/var/www/backend
+      - backend_vendor:/var/www/backend/vendor
+
+  node:
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    environment:
+      npm_config_cache: /tmp/npm-cache
+      HOME: /tmp
