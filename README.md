@@ -17,14 +17,24 @@ Fonte de verdade do produto: `docs/SPEC.md`.
 
 Fora deste MVP: WhatsApp, gateway de pagamento, KDS e recuperação real de senha.
 
-## Requisitos
+## Requisitos comuns
 
-- Windows 11 com WSL2 (Ubuntu)
-- Docker Desktop com integração WSL habilitada na distro Ubuntu
 - Git
-- Node.js 20+ no Ubuntu apenas se o Vite rodar fora do Compose
+- Docker Desktop (Windows/macOS) ou Docker Engine + Compose (Linux)
+- Node.js 20+ apenas se o Vite rodar fora do Compose
 
-## Onde colocar o projeto
+Siga a seção do seu sistema operacional e depois a seção **Depois que os containers subirem** (igual para todos).
+
+---
+
+## Windows (WSL2 + Ubuntu) — ambiente de desenvolvimento oficial
+
+### Requisitos
+
+- Windows 11 + WSL2 (Ubuntu)
+- Docker Desktop com Settings → Resources → WSL integration → Ubuntu
+
+### Onde clonar
 
 O código precisa viver no disco Linux. Bind mount em `/mnt/c` (NTFS) fica lento e quebra permissão de `storage`.
 
@@ -36,7 +46,52 @@ O código precisa viver no disco Linux. Bind mount em `/mnt/c` (NTFS) fica lento
 /mnt/c/Users/SEU_USUARIO/Desktop/simplyfood
 ```
 
-Clone:
+```bash
+mkdir -p ~/src
+git clone https://github.com/mitaloammon/simplyfood_.git ~/src/simplyfood
+cd ~/src/simplyfood
+```
+
+No VS Code: `\\wsl$\Ubuntu\home\SEU_USUARIO\src\simplyfood` ou, no Ubuntu, `code .`
+
+### Subir
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env 2>/dev/null || true
+
+mkdir -p backend/storage/framework/{cache,sessions,views} \
+         backend/storage/logs \
+         backend/bootstrap/cache
+chmod -R u+rwX backend/storage backend/bootstrap/cache
+
+export HOST_UID=$(id -u) HOST_GID=$(id -g)
+docker compose -f docker-compose.yml -f docker-compose.wsl.yml up --build -d
+docker compose ps
+```
+
+Atalho, se o script existir:
+
+```bash
+chmod +x scripts/*.sh
+./scripts/wsl-up.sh
+```
+
+---
+
+## macOS
+
+### Requisitos
+
+- macOS recente (Intel ou Apple Silicon)
+- Docker Desktop for Mac instalado e com o engine rodando
+- Terminal (zsh padrão)
+
+No Apple Silicon as imagens `linux/amd64` funcionam via emulação. Se o serviço `node` falhar com `exec format error`, rode o Vite no host (seção Frontend).
+
+### Onde clonar
+
+Pode clonar em qualquer pasta do usuário. Evite iCloud Desktop/Documents se o Docker reclamar de file sharing.
 
 ```bash
 mkdir -p ~/src
@@ -44,59 +99,83 @@ git clone https://github.com/mitaloammon/simplyfood_.git ~/src/simplyfood
 cd ~/src/simplyfood
 ```
 
-No VS Code, abra `\\wsl$\Ubuntu\home\SEU_USUARIO\src\simplyfood` ou, no Ubuntu:
+No Docker Desktop: Settings → Resources → File sharing — garanta que `~/src` está compartilhado.
+
+### Subir
+
+No Mac **não** use `docker-compose.wsl.yml` (é override de UID/volume do WSL).
 
 ```bash
-cd ~/src/simplyfood
-code .
-```
-
-## Primeira subida
-
-```bash
-cd ~/src/simplyfood
 cp .env.example .env
-```
+cp backend/.env.example backend/.env 2>/dev/null || true
 
-Se existir `backend/.env.example`:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Pastas graváveis do Laravel:
-
-```bash
 mkdir -p backend/storage/framework/{cache,sessions,views} \
          backend/storage/logs \
          backend/bootstrap/cache
 chmod -R u+rwX backend/storage backend/bootstrap/cache
-```
 
-Subir os containers:
-
-```bash
-export HOST_UID=$(id -u) HOST_GID=$(id -g)
-docker compose -f docker-compose.yml -f docker-compose.wsl.yml up --build -d
+docker compose -f docker-compose.yml up --build -d
 docker compose ps
 ```
 
+Se o `app` não gravar em `storage` (UID do container ≠ do Mac):
+
+```bash
+export HOST_UID=$(id -u) HOST_GID=$(id -g)
+docker compose -f docker-compose.yml up -d --force-recreate app
+```
+
+Só use o override WSL se alguém copiar o compose à mão. No Mac o arquivo base basta.
+
+---
+
+## Linux (Ubuntu/Debian nativo)
+
+### Requisitos
+
+- Docker Engine + plugin Compose
+- Seu usuário no grupo `docker` (`sudo usermod -aG docker $USER` e relogin)
+
+### Onde clonar
+
+```bash
+mkdir -p ~/src
+git clone https://github.com/mitaloammon/simplyfood_.git ~/src/simplyfood
+cd ~/src/simplyfood
+```
+
+### Subir
+
+Igual ao macOS: **sem** `docker-compose.wsl.yml`.
+
+```bash
+cp .env.example .env
+cp backend/.env.example backend/.env 2>/dev/null || true
+
+mkdir -p backend/storage/framework/{cache,sessions,views} \
+         backend/storage/logs \
+         backend/bootstrap/cache
+chmod -R u+rwX backend/storage backend/bootstrap/cache
+
+export HOST_UID=$(id -u) HOST_GID=$(id -g)
+docker compose -f docker-compose.yml up --build -d
+docker compose ps
+```
+
+---
+
+## Depois que os containers subirem (todos os SOs)
+
 Espere `mysql` em `healthy` e `app` em `Up`.
 
-Triggers no MySQL 8.4 exigem:
+Triggers no MySQL 8.4:
 
 ```bash
 docker compose exec mysql mysql -uroot -proot -e \
   "SET GLOBAL log_bin_trust_function_creators = 1;"
 ```
 
-No `docker-compose.yml`, o serviço `mysql` deve incluir:
-
-```text
---log-bin-trust-function-creators=1
-```
-
-Aplicação e banco:
+No `docker-compose.yml`, o serviço `mysql` deve incluir `--log-bin-trust-function-creators=1`.
 
 ```bash
 docker compose exec app composer install
@@ -104,31 +183,18 @@ docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate:fresh --seed
 ```
 
-`migrate:fresh` apaga o banco. Use só na instalação ou quando quiser resetar o seed.
+`migrate:fresh` apaga o banco. Use só na instalação ou para resetar o seed.
 
-Atalho, se o script existir e for executável:
-
-```bash
-chmod +x scripts/*.sh
-./scripts/wsl-up.sh
-```
-
-## Conferir se subiu
+### Conferir
 
 ```bash
 curl -s http://localhost:8080/api/health
-```
 
-Login:
-
-```bash
 curl -s http://localhost:8080/api/auth/login \
   -H "Accept: application/json" \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@simplyfood.test","password":"password"}'
 ```
-
-Usuários do seed (senha de todos: `password`):
 
 | E-mail | Papel |
 |---|---|
@@ -138,112 +204,99 @@ Usuários do seed (senha de todos: `password`):
 | waiter@simplyfood.test | WAITER |
 | kitchen@simplyfood.test | KITCHEN |
 
-Produtos do seed: X-Burger, Batata frita, Refrigerante lata.
+Senha de todos: `password`.
 
-## Frontend (SPA)
+### Frontend
 
-Endereços:
+- API: http://localhost:8080
+- Vite: http://localhost:5173
 
-- API / Nginx: http://localhost:8080
-- Vite (dev): http://localhost:5173
-
-O serviço `node` do Compose pode falhar no WSL (`exec format error`). Rode o Vite no Ubuntu:
+Se o serviço `node` do Compose falhar:
 
 ```bash
-cd ~/src/simplyfood/frontend
+cd frontend
 npm install
 npm run dev -- --host
 ```
 
-O token Sanctum fica só na memória da aba. Atualizar a página desloga. Não grave o token em `localStorage` nem `sessionStorage`.
+O token Sanctum fica só na memória da aba. F5 desloga. Não use `localStorage`.
 
-## Portas
+### Portas
 
-| Serviço | Porta no host |
+| Serviço | Host |
 |---|---|
 | API (Nginx) | 8080 |
 | Vite | 5173 |
 | MySQL | 3307 → 3306 |
 | Redis | 6380 → 6379 |
 
-## Comandos do dia a dia
+### Dia a dia
+
+Windows/WSL:
 
 ```bash
-cd ~/src/simplyfood
 export HOST_UID=$(id -u) HOST_GID=$(id -g)
 docker compose -f docker-compose.yml -f docker-compose.wsl.yml up -d
+```
+
+macOS / Linux:
+
+```bash
+docker compose -f docker-compose.yml up -d
+```
+
+```bash
 docker compose logs app --tail=80
 docker compose down
 ```
 
-Não rode `migrate:fresh` em base que já tem operação real.
+## Fluxo mínimo da API
 
-## Fluxo mínimo da API (smoke)
+1. Login e guardar `data.token`.
+2. `POST /api/cash/open` com `cash_register_id` do seed.
+3. `POST /api/orders` com `order_type: COUNTER` e `product_id` do seed.
+4. `POST /api/orders/{id}/payments` com `payment_method` (não `method`) e `amount`.
 
-1. Login e guardar o `data.token`.
-2. Abrir caixa: `POST /api/cash/open` com `cash_register_id` do seed e `opening_balance`.
-3. Criar pedido: `POST /api/orders` com `order_type: COUNTER` e `product_id` real do seed.
-4. Pagar: `POST /api/orders/{id}/payments` com `payment_method` (não `method`) e `amount`.
-
-Pedido sem turno de caixa aberto responde erro de negócio. `KITCHEN` toma 403 nas rotas operacionais.
+Pedido sem caixa aberto falha. `KITCHEN` toma 403 nas rotas operacionais.
 
 ## Problemas comuns
 
-### `docker: command not found` no Ubuntu
+**Docker não encontrado no WSL**  
+Docker Desktop → WSL integration → Ubuntu.
 
-Abra o Docker Desktop no Windows. Em Settings → Resources → WSL integration, marque a distro Ubuntu. Feche e abra o terminal WSL.
+**`app` Permission denied em storage (Windows/WSL)**  
+Crie as pastas no host, `chown` no seu usuário, e no override WSL **não** monte volume nomeado em `storage` nem force `user:` no `app`.
 
-### `app` sai com Permission denied em `storage/framework`
+**Erro 1419 ao criar triggers**  
+`SET GLOBAL log_bin_trust_function_creators = 1`.
 
-```bash
-mkdir -p backend/storage/framework/{cache,sessions,views} backend/storage/logs backend/bootstrap/cache
-sudo chown -R "$(id -un):$(id -gn)" backend/storage backend/bootstrap
-chmod -R u+rwX backend/storage backend/bootstrap/cache
-```
+**Pest/SQLite quebra em ENUM**  
+Aceite é a API no MySQL, não SQLite.
 
-Em `docker-compose.wsl.yml`, o serviço `app` não deve ter `user:` nem volume nomeado montado em `storage`.
+**`node` com exec format error (WSL ou Apple Silicon)**  
+Vite no host.
 
-### Migration falha com erro 1419 (triggers / SUPER)
-
-```bash
-docker compose exec mysql mysql -uroot -proot -e \
-  "SET GLOBAL log_bin_trust_function_creators = 1;"
-docker compose exec app php artisan migrate:fresh --seed
-```
-
-### Pest / SQLite quebra em ENUM e CHECK
-
-A schema oficial é MySQL. O critério de aceite do MVP é a API no container, não o SQLite em memória.
-
-### Container `node` com `exec format error`
-
-Ignore o serviço `node` e suba o Vite no host, como na seção Frontend.
-
-### `EACCES` em `frontend/node_modules`
-
-```bash
-sudo chown -R "$(id -un):$(id -gn)" frontend
-rm -rf frontend/node_modules
-cd frontend && npm install
-```
+**Porta 8080 ocupada no Mac**  
+Outro processo (ou Compose antigo). `docker compose down` ou troque o mapeamento em `docker-compose.yml`.
 
 ## Estrutura
 
 ```text
 backend/     API Laravel
 frontend/    SPA Vue 3 + Vite
-docs/        SPEC e changelog
+docs/        SPEC e specs SDD
 infrastructure/
 scripts/     helpers WSL
 docker-compose.yml
-docker-compose.wsl.yml
+docker-compose.wsl.yml   # só Windows/WSL
 ```
 
 ## Documentação
 
-- `docs/SPEC.md` — contrato do sistema
-- `docs/CHANGELOG.md` — mudanças fora das etapas originais (quando existir)
+- `docs/SPEC.md` — contrato
+- `docs/specs/` — SDD por responsabilidade (quando existir)
+- `docs/CHANGELOG.md` — mudanças fora das etapas 1–10
 
 ## Licença
 
-Uso interno do projeto SimplyFood, salvo outra licença adicionada a este repositório.
+Uso interno do projeto SimplyFood, salvo outra licença neste repositório.
