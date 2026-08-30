@@ -1,49 +1,49 @@
 # SimplyFood
 
-PDV de restaurante (MVP): Laravel 12, Vue 3, MySQL 8.4 e Redis, orquestrados com Docker Compose.
+Restaurant POS (MVP): Laravel 12, Vue 3, MySQL 8.4, and Redis, orchestrated with Docker Compose.
 
-Fonte de verdade do produto: `docs/SPEC.md`.
+Product source of truth: `docs/SPEC.md`.
 
-## O que este repositório entrega
+## What this repository includes
 
-- Autenticação Sanctum (login, logout, me) com papéis ADMIN, MANAGER, CASHIER, WAITER e KITCHEN
-- Categorias e produtos
-- Clientes
-- Caixa (abrir, atual, movimentações, histórico, fechar)
-- Mesas e comandas
-- Pedidos e pagamentos
-- Dashboard de métricas
-- SPA Vue 3 (login + módulos operacionais)
+- Sanctum authentication (login, logout, me) with roles ADMIN, MANAGER, CASHIER, WAITER, and KITCHEN
+- Categories and products
+- Customers
+- Cash register (open, current, movements, history, close)
+- Tables and checks (comandas)
+- Orders and payments
+- Metrics dashboard
+- Vue 3 SPA (login + operational modules)
 
-Fora deste MVP: WhatsApp, gateway de pagamento, KDS e recuperação real de senha.
+Out of this MVP: WhatsApp, payment gateway, KDS, and real password recovery.
 
-## Requisitos comuns
+## Common requirements
 
 - Git
-- Docker Desktop (Windows/macOS) ou Docker Engine + Compose (Linux)
-- Node.js 20+ apenas se o Vite rodar fora do Compose
+- Docker Desktop (Windows/macOS) or Docker Engine + Compose (Linux)
+- Node.js 20+ only if Vite runs outside Compose
 
-Siga a seção do seu sistema operacional e depois a seção **Depois que os containers subirem** (igual para todos).
+Follow the section for your operating system, then **After the containers are up** (same on every OS).
 
 ---
 
-## Windows (WSL2 + Ubuntu) — ambiente de desenvolvimento oficial
+## Windows (WSL2 + Ubuntu) — official development environment
 
-### Requisitos
+### Requirements
 
 - Windows 11 + WSL2 (Ubuntu)
-- Docker Desktop com Settings → Resources → WSL integration → Ubuntu
+- Docker Desktop with Settings → Resources → WSL integration → Ubuntu
 
-### Onde clonar
+### Where to clone
 
-O código precisa viver no disco Linux. Bind mount em `/mnt/c` (NTFS) fica lento e quebra permissão de `storage`.
+The code must live on the Linux filesystem. A bind mount under `/mnt/c` (NTFS) is slow and breaks `storage` permissions.
 
 ```bash
-# certo
+# correct
 ~/src/simplyfood
 
-# errado
-/mnt/c/Users/SEU_USUARIO/Desktop/simplyfood
+# wrong
+/mnt/c/Users/YOUR_USER/Desktop/simplyfood
 ```
 
 ```bash
@@ -52,9 +52,9 @@ git clone https://github.com/mitaloammon/simplyfood_.git ~/src/simplyfood
 cd ~/src/simplyfood
 ```
 
-No VS Code: `\\wsl$\Ubuntu\home\SEU_USUARIO\src\simplyfood` ou, no Ubuntu, `code .`
+In VS Code: `\\wsl$\Ubuntu\home\YOUR_USER\src\simplyfood` or, in Ubuntu, `code .`
 
-### Subir
+### Start
 
 ```bash
 cp .env.example .env
@@ -70,7 +70,7 @@ docker compose -f docker-compose.yml -f docker-compose.wsl.yml up --build -d
 docker compose ps
 ```
 
-Atalho, se o script existir:
+Shortcut, if the script exists:
 
 ```bash
 chmod +x scripts/*.sh
@@ -81,17 +81,17 @@ chmod +x scripts/*.sh
 
 ## macOS
 
-### Requisitos
+### Requirements
 
-- macOS recente (Intel ou Apple Silicon)
-- Docker Desktop for Mac instalado e com o engine rodando
-- Terminal (zsh padrão)
+- Recent macOS (Intel or Apple Silicon)
+- Docker Desktop for Mac installed and the engine running
+- Terminal (default zsh)
 
-No Apple Silicon as imagens `linux/amd64` funcionam via emulação. Se o serviço `node` falhar com `exec format error`, rode o Vite no host (seção Frontend).
+On Apple Silicon, `linux/amd64` images run through emulation. If the `node` service fails with `exec format error`, run Vite on the host (Frontend section).
 
-### Onde clonar
+### Where to clone
 
-Pode clonar em qualquer pasta do usuário. Evite iCloud Desktop/Documents se o Docker reclamar de file sharing.
+Any user folder is fine. Avoid iCloud Desktop/Documents if Docker complains about file sharing.
 
 ```bash
 mkdir -p ~/src
@@ -99,11 +99,11 @@ git clone https://github.com/mitaloammon/simplyfood_.git ~/src/simplyfood
 cd ~/src/simplyfood
 ```
 
-No Docker Desktop: Settings → Resources → File sharing — garanta que `~/src` está compartilhado.
+In Docker Desktop: Settings → Resources → File sharing — make sure `~/src` is shared.
 
-### Subir
+### Start
 
-No Mac **não** use `docker-compose.wsl.yml` (é override de UID/volume do WSL).
+On a Mac **do not** use `docker-compose.wsl.yml` (it is a WSL UID/volume override).
 
 ```bash
 cp .env.example .env
@@ -118,25 +118,25 @@ docker compose -f docker-compose.yml up --build -d
 docker compose ps
 ```
 
-Se o `app` não gravar em `storage` (UID do container ≠ do Mac):
+If `app` cannot write to `storage` (container UID ≠ Mac UID):
 
 ```bash
 export HOST_UID=$(id -u) HOST_GID=$(id -g)
 docker compose -f docker-compose.yml up -d --force-recreate app
 ```
 
-Só use o override WSL se alguém copiar o compose à mão. No Mac o arquivo base basta.
+Only use the WSL override if someone copied it by hand. On a Mac the base compose file is enough.
 
 ---
 
-## Linux (Ubuntu/Debian nativo)
+## Linux (native Ubuntu/Debian)
 
-### Requisitos
+### Requirements
 
-- Docker Engine + plugin Compose
-- Seu usuário no grupo `docker` (`sudo usermod -aG docker $USER` e relogin)
+- Docker Engine + Compose plugin
+- Your user in the `docker` group (`sudo usermod -aG docker $USER` then sign in again)
 
-### Onde clonar
+### Where to clone
 
 ```bash
 mkdir -p ~/src
@@ -144,9 +144,9 @@ git clone https://github.com/mitaloammon/simplyfood_.git ~/src/simplyfood
 cd ~/src/simplyfood
 ```
 
-### Subir
+### Start
 
-Igual ao macOS: **sem** `docker-compose.wsl.yml`.
+Same as macOS: **without** `docker-compose.wsl.yml`.
 
 ```bash
 cp .env.example .env
@@ -164,18 +164,18 @@ docker compose ps
 
 ---
 
-## Depois que os containers subirem (todos os SOs)
+## After the containers are up (every OS)
 
-Espere `mysql` em `healthy` e `app` em `Up`.
+Wait until `mysql` is `healthy` and `app` is `Up`.
 
-Triggers no MySQL 8.4:
+MySQL 8.4 triggers:
 
 ```bash
 docker compose exec mysql mysql -uroot -proot -e \
   "SET GLOBAL log_bin_trust_function_creators = 1;"
 ```
 
-No `docker-compose.yml`, o serviço `mysql` deve incluir `--log-bin-trust-function-creators=1`.
+In `docker-compose.yml`, the `mysql` service must include `--log-bin-trust-function-creators=1`.
 
 ```bash
 docker compose exec app composer install
@@ -183,9 +183,9 @@ docker compose exec app php artisan key:generate
 docker compose exec app php artisan migrate:fresh --seed
 ```
 
-`migrate:fresh` apaga o banco. Use só na instalação ou para resetar o seed.
+`migrate:fresh` drops the database. Use it only for first install or to reset the seed.
 
-### Conferir
+### Check
 
 ```bash
 curl -s http://localhost:8080/api/health
@@ -196,7 +196,7 @@ curl -s http://localhost:8080/api/auth/login \
   -d '{"email":"admin@simplyfood.test","password":"password"}'
 ```
 
-| E-mail | Papel |
+| Email | Role |
 |---|---|
 | admin@simplyfood.test | ADMIN |
 | manager@simplyfood.test | MANAGER |
@@ -204,14 +204,14 @@ curl -s http://localhost:8080/api/auth/login \
 | waiter@simplyfood.test | WAITER |
 | kitchen@simplyfood.test | KITCHEN |
 
-Senha de todos: `password`.
+Password for every seed user: `password`.
 
 ### Frontend
 
 - API: http://localhost:8080
 - Vite: http://localhost:5173
 
-Se o serviço `node` do Compose falhar:
+If the Compose `node` service fails:
 
 ```bash
 cd frontend
@@ -219,18 +219,18 @@ npm install
 npm run dev -- --host
 ```
 
-O token Sanctum fica só na memória da aba. F5 desloga. Não use `localStorage`.
+The Sanctum token lives only in tab memory. A refresh logs you out. Do not use `localStorage`.
 
-### Portas
+### Ports
 
-| Serviço | Host |
+| Service | Host |
 |---|---|
 | API (Nginx) | 8080 |
 | Vite | 5173 |
 | MySQL | 3307 → 3306 |
 | Redis | 6380 → 6379 |
 
-### Dia a dia
+### Day to day
 
 Windows/WSL:
 
@@ -250,53 +250,53 @@ docker compose logs app --tail=80
 docker compose down
 ```
 
-## Fluxo mínimo da API
+## Minimal API flow
 
-1. Login e guardar `data.token`.
-2. `POST /api/cash/open` com `cash_register_id` do seed.
-3. `POST /api/orders` com `order_type: COUNTER` e `product_id` do seed.
-4. `POST /api/orders/{id}/payments` com `payment_method` (não `method`) e `amount`.
+1. Log in and keep `data.token`.
+2. `POST /api/cash/open` with the seed `cash_register_id`.
+3. `POST /api/orders` with `order_type: COUNTER` and a seed `product_id`.
+4. `POST /api/orders/{id}/payments` with `payment_method` (not `method`) and `amount`.
 
-Pedido sem caixa aberto falha. `KITCHEN` toma 403 nas rotas operacionais.
+An order without an open cash shift fails. `KITCHEN` gets 403 on operational routes.
 
-## Problemas comuns
+## Common issues
 
-**Docker não encontrado no WSL**  
+**`docker` not found in WSL**  
 Docker Desktop → WSL integration → Ubuntu.
 
-**`app` Permission denied em storage (Windows/WSL)**  
-Crie as pastas no host, `chown` no seu usuário, e no override WSL **não** monte volume nomeado em `storage` nem force `user:` no `app`.
+**`app` Permission denied on storage (Windows/WSL)**  
+Create the host directories, `chown` them to your user, and in the WSL override do **not** mount a named volume on `storage` or set `user:` on `app`.
 
-**Erro 1419 ao criar triggers**  
+**Error 1419 when creating triggers**  
 `SET GLOBAL log_bin_trust_function_creators = 1`.
 
-**Pest/SQLite quebra em ENUM**  
-Aceite é a API no MySQL, não SQLite.
+**Pest/SQLite breaks on ENUM**  
+Acceptance is the API on MySQL, not SQLite.
 
-**`node` com exec format error (WSL ou Apple Silicon)**  
-Vite no host.
+**`node` exec format error (WSL or Apple Silicon)**  
+Run Vite on the host.
 
-**Porta 8080 ocupada no Mac**  
-Outro processo (ou Compose antigo). `docker compose down` ou troque o mapeamento em `docker-compose.yml`.
+**Port 8080 already in use on a Mac**  
+Another process (or an old Compose stack). Run `docker compose down` or change the mapping in `docker-compose.yml`.
 
-## Estrutura
+## Layout
 
 ```text
-backend/     API Laravel
-frontend/    SPA Vue 3 + Vite
-docs/        SPEC e specs SDD
+backend/                 Laravel API
+frontend/                Vue 3 + Vite SPA
+docs/                    SPEC and SDD specs
 infrastructure/
-scripts/     helpers WSL
+scripts/                 WSL helpers
 docker-compose.yml
-docker-compose.wsl.yml   # só Windows/WSL
+docker-compose.wsl.yml   # Windows/WSL only
 ```
 
-## Documentação
+## Documentation
 
-- `docs/SPEC.md` — contrato
-- `docs/specs/` — SDD por responsabilidade (quando existir)
-- `docs/CHANGELOG.md` — mudanças fora das etapas 1–10
+- `docs/SPEC.md` — contract
+- `docs/specs/` — SDD by responsibility (when present)
+- `docs/CHANGELOG.md` — changes outside stages 1–10
 
-## Licença
+## License
 
-Uso interno do projeto SimplyFood, salvo outra licença neste repositório.
+Internal use for the SimplyFood project unless another license is added to this repository.
