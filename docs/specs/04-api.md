@@ -6,6 +6,17 @@ O envelope, os headers e os middlewares pertencem a [Arquitetura](03-arquitetura
 
 As rotas abaixo foram conferidas em `backend/routes/api.php`.
 
+## Diagramas de sequência
+
+- [Auth: login, sessão e logout](diagrams/auth-login.md)
+- [Catálogo: categorias e produtos](diagrams/catalog-products.md)
+- [Clientes](diagrams/customers.md)
+- [Turno de caixa](diagrams/cash-shift.md)
+- [Mesas e comandas](diagrams/tables-commands.md)
+- [Pedido COUNTER](diagrams/orders-counter.md)
+- [Pagamentos](diagrams/payments.md)
+- [Métricas do dashboard](diagrams/dashboard-metrics.md)
+
 ## Auth e health
 
 ### `GET /api/health`
@@ -191,4 +202,3 @@ A matriz anterior também prevê CRUD de usuários por ADMIN e MANAGER, mas nenh
 ## Status HTTP
 
 - 200, 201, 400, 401, 403, 404, 409 (conflito de caixa/mesa), 422, 429, 500
-
