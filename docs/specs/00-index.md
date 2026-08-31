@@ -14,6 +14,7 @@ Cada regra tem um único arquivo responsável. Os demais arquivos apontam para e
 6. [Testes](06-testes.md): critérios de aceite.
 7. [Sprints](07-sprints.md): histórico de implementação.
 8. [Skills](08-skills.md): ferramentas de apoio para trabalho visual e texto.
+9. [Fluxos de casos de uso](diagrams/00-index.md): sequências reais da API e da SPA.
 
 ## Para agentes
 
