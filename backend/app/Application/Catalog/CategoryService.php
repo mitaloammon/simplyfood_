@@ -2,7 +2,9 @@
 
 namespace App\Application\Catalog;
 
+use App\Exceptions\BusinessConflictException;
 use App\Models\Category;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
@@ -42,6 +44,19 @@ class CategoryService
 
     public function delete(User $user, string $id): void
     {
-        $this->find($user, $id)->delete();
+        $category = $this->find($user, $id);
+
+        $hasLinkedProducts = Product::query()
+            ->where('establishment_id', $user->establishment_id)
+            ->where('category_id', $category->id)
+            ->exists();
+
+        if ($hasLinkedProducts) {
+            throw new BusinessConflictException(
+                'Não é possível excluir a categoria enquanto houver produtos vinculados'
+            );
+        }
+
+        $category->delete();
     }
 }

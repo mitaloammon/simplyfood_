@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import axios from 'axios'
 import { onMounted, ref } from 'vue'
 import { apiErrorMessage } from '../../shared/api/errors'
 import { money } from '../../shared/formatters'
@@ -98,10 +99,16 @@ async function saveProduct() {
 
 async function removeCategory(category: Category) {
   if (!window.confirm('Remover a categoria ' + category.name + '?')) return
+  error.value = ''
   try {
     await deleteCategory(category.id)
     await load()
   } catch (exception) {
+    if (axios.isAxiosError(exception) && exception.response?.status === 409) {
+      error.value = apiErrorMessage(exception)
+      return
+    }
+
     error.value = apiErrorMessage(exception)
   }
 }
