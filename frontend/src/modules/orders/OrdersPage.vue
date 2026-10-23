@@ -118,10 +118,12 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="mb-7">
-      <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-blue">Atendimento</p>
-      <h1 class="page-title">Pedidos</h1>
-      <p class="mt-2 text-sm text-slate-500">Abra pedidos e acompanhe cada etapa.</p>
+    <div class="page-header">
+      <div>
+        <p class="page-eyebrow">Atendimento</p>
+        <h1 class="page-title">Pedidos</h1>
+        <p class="page-description">Abra pedidos e acompanhe cada etapa.</p>
+      </div>
     </div>
     <p v-if="error" class="mb-5 rounded-lg border border-red-100 bg-red-50 p-4 text-sm text-red-700">{{ error }}</p>
 

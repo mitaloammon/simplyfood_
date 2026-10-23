@@ -26,11 +26,11 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <div class="page-header">
       <div>
-        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-blue">Agora</p>
+        <p class="page-eyebrow">Agora</p>
         <h1 class="page-title">Dashboard</h1>
-        <p class="mt-2 text-sm text-slate-500">Acompanhe o movimento do turno.</p>
+        <p class="page-description">Acompanhe o movimento do turno.</p>
       </div>
       <button class="btn-secondary" :disabled="loading" @click="load">Atualizar</button>
     </div>

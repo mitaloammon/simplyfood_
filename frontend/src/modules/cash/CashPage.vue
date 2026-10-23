@@ -74,11 +74,11 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <div class="page-header">
       <div>
-        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-blue">Turno</p>
+        <p class="page-eyebrow">Turno</p>
         <h1 class="page-title">Caixa</h1>
-        <p class="mt-2 text-sm text-slate-500">Controle a abertura, os movimentos e o fechamento.</p>
+        <p class="page-description">Controle a abertura, os movimentos e o fechamento.</p>
       </div>
       <button class="btn-secondary" :disabled="loading" @click="load">Atualizar</button>
     </div>

@@ -128,9 +128,12 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="mb-6">
-      <h1 class="page-title">Produtos e categorias</h1>
-      <p class="mt-1 text-sm text-slate-500">Catálogo disponível para ADMIN e MANAGER.</p>
+    <div class="page-header">
+      <div>
+        <p class="page-eyebrow">Catálogo</p>
+        <h1 class="page-title">Produtos e categorias</h1>
+        <p class="page-description">Catálogo disponível para ADMIN e MANAGER.</p>
+      </div>
     </div>
     <p v-if="error" class="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ error }}</p>
 

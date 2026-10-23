@@ -80,9 +80,12 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="mb-6">
-      <h1 class="page-title">Clientes</h1>
-      <p class="mt-1 text-sm text-[#44403c]">Cadastro isolado por estabelecimento.</p>
+    <div class="page-header">
+      <div>
+        <p class="page-eyebrow">Cadastro</p>
+        <h1 class="page-title">Clientes</h1>
+        <p class="page-description">Cadastro isolado por estabelecimento.</p>
+      </div>
     </div>
 
     <p v-if="error" class="mb-5 rounded-xl bg-red-50 p-4 text-sm text-red-700">{{ error }}</p>

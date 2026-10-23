@@ -13,7 +13,7 @@ export default {
         },
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['Clarity City Variable', 'Clarity City', 'system-ui', '-apple-system', 'sans-serif'],
       },
       boxShadow: {
         surface: '0 10px 30px rgba(20, 33, 61, 0.07)',

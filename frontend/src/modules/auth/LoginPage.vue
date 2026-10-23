@@ -42,10 +42,10 @@ function showComingSoon() {
 
       <div class="relative flex h-full min-h-[240px] flex-col justify-end p-7 sm:min-h-[300px] sm:p-10 lg:min-h-screen lg:p-14 xl:p-20">
         <div class="max-w-2xl border-l-4 border-brand-coral pl-5 sm:pl-7">
-          <h2 class="max-w-xl text-3xl font-bold leading-tight tracking-[-0.045em] sm:text-4xl xl:text-6xl">
+          <h2 class="max-w-xl text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-50 sm:text-4xl xl:text-6xl">
             Tudo pronto para o próximo pedido.
           </h2>
-          <p class="mt-4 hidden max-w-lg text-base leading-relaxed text-slate-300 sm:block">
+          <p class="mt-4 hidden max-w-lg text-base leading-relaxed text-slate-200 sm:block">
             Entre para cuidar das mesas, dos pedidos e do caixa sem perder o ritmo.
           </p>
         </div>
@@ -60,7 +60,7 @@ function showComingSoon() {
       <div class="mx-auto flex w-full max-w-md flex-1 items-center py-10">
         <div class="w-full">
           <h1 class="text-3xl font-bold tracking-[-0.04em] text-brand-navy sm:text-4xl">Entre no SimplyFood</h1>
-          <p class="mt-3 text-sm leading-relaxed text-slate-500">Use seu acesso para continuar o atendimento.</p>
+          <p class="mt-3 text-sm leading-relaxed text-slate-600">Use seu acesso para continuar o atendimento.</p>
 
           <form class="mt-8 space-y-5" @submit.prevent="submit">
             <label class="block">
@@ -94,16 +94,16 @@ function showComingSoon() {
             </button>
           </form>
 
-          <p class="mt-4 text-center text-xs text-[#44403c]">Seu acesso fica nesta aba e é encerrado ao sair.</p>
+          <p class="mt-4 text-center text-xs text-slate-600">Seu acesso fica nesta aba e é encerrado ao sair.</p>
         </div>
       </div>
 
       <footer class="mx-auto w-full max-w-md border-t border-slate-200 pt-5">
         <div class="flex flex-wrap items-center justify-between gap-3 text-sm">
-          <a href="#" class="font-medium text-slate-500 hover:text-brand-blue" @click.prevent="showComingSoon">
+          <a href="#" class="font-semibold text-slate-700 hover:text-brand-blue" @click.prevent="showComingSoon">
             Esqueci a senha
           </a>
-          <a href="#" class="font-medium text-slate-500 hover:text-brand-blue" @click.prevent="showComingSoon">
+          <a href="#" class="font-semibold text-slate-700 hover:text-brand-blue" @click.prevent="showComingSoon">
             Novo usuário
           </a>
         </div>
