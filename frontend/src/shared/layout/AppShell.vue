@@ -45,8 +45,8 @@ async function logout() {
     >
       <div class="flex h-full flex-col">
         <div class="flex items-center justify-between border-b border-white/10 px-5 py-5 lg:px-6 lg:py-7">
-          <RouterLink to="/dashboard" class="text-xl font-bold tracking-[-0.035em]" aria-label="SimplyFood, início">
-            Simply<span class="text-blue-300">Food</span>
+          <RouterLink to="/dashboard" class="text-xl font-bold tracking-[-0.035em]" aria-label="SimplyCore, início">
+            Simply<span class="text-blue-300">Core</span>
           </RouterLink>
 
           <div class="flex items-center gap-2 lg:hidden">
@@ -80,7 +80,7 @@ async function logout() {
     <main class="min-h-screen lg:pl-64">
       <div class="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
         <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-brand-navy hover:bg-slate-50" aria-label="Abrir navegação" aria-controls="app-sidebar" :aria-expanded="sidebarOpen" @click="sidebarOpen = true">☰</button>
-        <span class="text-base font-bold text-brand-navy">Simply<span class="text-brand-blue">Food</span></span>
+        <span class="text-base font-bold text-brand-navy">Simply<span class="text-brand-blue">Core</span></span>
         <span class="ml-auto max-w-36 truncate text-xs text-slate-500">{{ auth.user?.name }}</span>
       </div>
       <div class="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8 xl:p-9">

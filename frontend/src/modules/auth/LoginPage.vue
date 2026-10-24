@@ -52,12 +52,12 @@ async function submit() {
 
     <section class="flex min-h-[calc(100vh-240px)] flex-col bg-white px-6 py-8 sm:min-h-[calc(100vh-300px)] sm:px-12 lg:min-h-screen lg:px-14 lg:py-12 xl:px-20">
       <header class="mx-auto w-full max-w-md">
-        <p class="text-xs font-bold uppercase tracking-[0.24em] text-brand-blue">SimplyFood</p>
+        <p class="text-xs font-bold uppercase tracking-[0.24em] text-brand-blue">SimplyCore</p>
       </header>
 
       <div class="mx-auto flex w-full max-w-md flex-1 items-center py-10">
         <div class="w-full">
-          <h1 class="text-3xl font-bold tracking-[-0.04em] text-brand-navy sm:text-4xl">Entre no SimplyFood</h1>
+          <h1 class="text-3xl font-bold tracking-[-0.04em] text-brand-navy sm:text-4xl">Entre no SimplyCore</h1>
           <p class="mt-3 text-sm leading-relaxed text-slate-600">Entre com a conta de gestão do estabelecimento.</p>
 
           <form class="mt-8 space-y-5" @submit.prevent="submit">
