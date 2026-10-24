@@ -1,146 +1,38 @@
-# Restrições de integridade — SimplyFood MVP
+# Database Integrity Review
 
-Complemento do [SPEC.md](../SPEC.md) seção 9. Em conflito, o SPEC prevalece; este arquivo detalha o que o banco deve recusar.
+This document records static observations from versioned SQL and application code. It does not describe an active database: the target server and schema have not been inspected. The SQL files under `backend/database/sql/` and their migration runner are the relevant artifacts; compare them with any deployed schema before planning changes.
 
-## 1. O que o DDL já garante
+## Observed schema characteristics
 
-### Chaves primárias
-Toda tabela tem PK. `product_ingredients` usa PK composta `(product_id, inventory_item_id)`.
+The versioned schema defines UUID-keyed establishment-scoped records, foreign keys, unique constraints for selected business keys, and MySQL-specific enums/checks/triggers. `product_ingredients` uses a composite key. The details must be verified against the current SQL files because this document is not a generated schema inventory.
 
-### Unicidade
-| Tabela | Unique | Efeito |
-| --- | --- | --- |
-| users | email | e-mail global, não por estabelecimento |
-| tables | (establishment_id, number) | número de mesa único na loja |
-| commands | (establishment_id, code) | código de comanda único na loja |
+The inspected DDL does not consistently encode same-establishment membership in relationships as composite foreign keys. Application-level establishment filters therefore remain important, while database-level cross-tenant relational integrity is not universally enforced by the versioned schema. Whether a particular relationship permits cross-establishment references must be confirmed against its exact DDL and current database.
 
-### Foreign keys (RESTRICT implícito)
+Some operational references have no database foreign key in the versioned SQL; soft deletion also does not by itself prevent new references to a soft-deleted row. These conditions need explicit domain policy and schema review before introducing new workflows.
 
-| Filho | Pai |
-| --- | --- |
-| users, customers, categories, products, tables, commands, cash_registers, shifts, movements, orders, payments, inventory_items, stock_movements | establishments |
-| products | categories |
-| commands | tables |
-| cash_register_shifts | cash_registers, users |
-| cash_movements | cash_register_shifts, users |
-| orders | shifts, users (waiter), customers, tables, commands |
-| order_items | orders, products |
-| order_status_history | orders |
-| payments | orders |
-| product_ingredients | products, inventory_items |
-| stock_movements | inventory_items |
+## Risks requiring design and verification
 
-Não há `ON DELETE CASCADE`. Excluir estabelecimento, produto ou pedido com dependentes falha no banco.
+- Cross-establishment relationships can undermine logical isolation if a write path validates each ID independently or omits tenant scoping.
+- Concurrent operations require transaction boundaries and consistent row-lock ordering; uniqueness constraints alone do not define business outcomes.
+- Financial, stock, order, and audit records require retention and deletion rules that preserve history.
+- MySQL DDL and trigger behavior may not be transactional. The current migration runner's partial-application recovery must be tested on an isolated restored database.
+- The active engine/version, SQL mode, installed triggers, constraints, and migration history are unknown until inspected with authorization.
 
-### Domínios (ENUM)
-Papéis, status de mesa/comanda/pedido/item, tipos de movimento e pagamento estão fechados no DDL.
+## Review proposals, not applied migrations
 
-## 2. Buracos de integridade
+Tenant-aware composite foreign keys (for example, a unique parent key on `(id, establishment_id)` paired with a child foreign key on `(parent_id, establishment_id)`) are a candidate defense in depth. Before proposing an ALTER, inventory existing rows for violations, index/constraint compatibility, nullable relationships, migration ordering, lock/downtime requirements, and rollback/recovery behavior.
 
-### 2.1 Tenant cruzado (crítico)
-As FKs não exigem o mesmo `establishment_id` no pai e no filho.
+Do not apply schema changes by copying examples from historical documentation. No ALTER statements are prescribed here. Reconcile any proposal with DEC-01 and obtain approval before implementation.
 
-Um pedido da loja A pode apontar para mesa da loja B, produto da loja B ou turno da loja B. O banco aceita. Isso só cai se a aplicação filtrar — insuficiente.
+## Application-level invariants
 
-Correção: chave única auxiliar `(id, establishment_id)` no pai e FK composta no filho.
+State transitions, authorization, payment sufficiency, cash closure, stock non-negativity, and soft-delete policy generally require application/service logic and transactions, potentially together with constraints or triggers. Verify the implemented behavior in services, SQL, and tests; this page does not claim complete enforcement.
 
-### 2.2 FKs ausentes
-- `order_items.establishment_id` → sem FK
-- `order_status_history.changed_by` → sem FK para `users`
-- `payments.cash_register_shift_id` → sem FK
-- `stock_movements.user_id` e `stock_movements.order_id` → sem FK
+## Evidence and next verification
 
-### 2.3 CHECK e UNIQUE no DDL (MySQL 8.0.16+)
+- Versioned schema: `backend/database/sql/simplyfood-db.sql`
+- Versioned triggers: `backend/database/sql/simplyfood-triggers.sql`
+- Migration wrappers and ordering: `backend/database/migrations/`
+- Current route and service behavior: `backend/routes/api.php` and `backend/app/Application/`
 
-Já no `databases/simplyfood-db.sql`: valores (preço, quantidade, amount), forma do pedido, comanda OPEN com mesa, formato do turno, um OPEN por caixa, SKU/telefone únicos por loja, `total_price = quantity * unit_price`.
-
-Ainda só na aplicação: pedido exige turno OPEN; CLOSED exige pagamento; transição de status; tenant cruzado (FK composta); override de estoque negativo.
-
-### 2.4 Soft delete vs FK
-`deleted_at` não impede referência. Pedido pode apontar para produto ou cliente “apagado”. Integridade de negócio fica na Application Layer.
-
-### 2.5 E-mail global
-`users.email` único no sistema inteiro. Correto para login Sanctum. Impede o mesmo e-mail em dois estabelecimentos.
-
-### 2.6 ENUM no MySQL
-ENUM não é restrição forte (inserção inválida pode virar `''` conforme sql_mode). Preferir lookup ou CHECK em MySQL 8.0.16+.
-
-## 3. Restrições recomendadas no DDL
-
-```sql
--- Unicidade de negócio
-ALTER TABLE products
-  ADD UNIQUE KEY products_establishment_sku_unique (establishment_id, sku);
-
-ALTER TABLE customers
-  ADD UNIQUE KEY customers_establishment_phone_unique (establishment_id, phone);
-
--- Um turno aberto por caixa (coluna gerada)
-ALTER TABLE cash_register_shifts
-  ADD COLUMN open_register_key char(36)
-    GENERATED ALWAYS AS (IF(status = 'OPEN' AND deleted_at IS NULL, cash_register_id, NULL)) STORED,
-  ADD UNIQUE KEY shifts_one_open_per_register (open_register_key);
-
--- Sinais
-ALTER TABLE products
-  ADD CONSTRAINT products_price_chk CHECK (price >= 0 AND cost_price >= 0),
-  ADD CONSTRAINT products_prep_chk CHECK (preparation_time_minutes >= 0);
-
-ALTER TABLE order_items
-  ADD CONSTRAINT order_items_qty_chk CHECK (quantity > 0 AND unit_price >= 0 AND total_price >= 0);
-
-ALTER TABLE payments
-  ADD CONSTRAINT payments_amount_chk CHECK (amount > 0);
-
-ALTER TABLE cash_movements
-  ADD CONSTRAINT cash_movements_amount_chk CHECK (amount > 0);
-
-ALTER TABLE inventory_items
-  ADD CONSTRAINT inventory_min_stock_chk CHECK (min_stock >= 0);
-
--- Tipo de pedido vs mesa/comanda
-ALTER TABLE orders
-  ADD CONSTRAINT orders_type_shape_chk CHECK (
-    (order_type = 'TABLE' AND table_id IS NOT NULL AND command_id IS NULL)
-    OR (order_type = 'COMMAND' AND table_id IS NOT NULL AND command_id IS NOT NULL)
-    OR (order_type = 'COUNTER' AND table_id IS NULL AND command_id IS NULL)
-  );
-```
-
-FK composta (exemplo produtos → categorias):
-
-```sql
-ALTER TABLE categories
-  ADD UNIQUE KEY categories_id_establishment_unique (id, establishment_id);
-
-ALTER TABLE products
-  ADD CONSTRAINT products_category_tenant_fk
-    FOREIGN KEY (category_id, establishment_id)
-    REFERENCES categories (id, establishment_id);
-```
-
-Repetir o padrão em: commands→tables, orders→tables/commands/shifts/customers/waiters, order_items→orders/products, payments→orders, product_ingredients e stock_movements.
-
-## 4. O que permanece na aplicação
-
-Mesmo com o DDL reforçado, estas regras não cabem bem em CHECK:
-
-- transição de status (`OPEN` → `IN_PREPARATION` → …)
-- fechar pedido somente se `SUM(payments.amount)` dos `CONFIRMED` >= `total_amount`
-- fechar turno somente se não houver pedido ativo
-- recusar estoque negativo no `CLOSED` (salvo ADMIN/MANAGER)
-- soft delete sem quebrar histórico financeiro
-- autorização por papel
-
-Essas regras exigem transação + lock (`SELECT … FOR UPDATE` no turno e na mesa).
-
-## 5. Política de exclusão
-
-| Recurso | Política |
-| --- | --- |
-| Estabelecimento, pedido, turno, pagamento, movimento | RESTRICT + soft delete |
-| waiter_id, customer_id em order | SET NULL no hard delete (não usar no MVP) |
-| Produto com item de pedido | RESTRICT; desativar `is_available` |
-| Mesa com comanda/pedido | RESTRICT |
-
-Nunca usar CASCADE em tabelas financeiras.
+The authorized Phase 0 runbook must inspect the effective server/schema, privileges, constraints, triggers, and migration history, then compare those results with versioned SQL. Backup and isolated restoration require separate authorization.

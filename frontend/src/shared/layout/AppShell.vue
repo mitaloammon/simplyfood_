@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import type { Role } from '../types/api'
@@ -21,7 +21,10 @@ const navigation: NavigationItem[] = [
 
 const auth = useAuthStore()
 const router = useRouter()
+const sidebarOpen = ref(false)
 const visibleNavigation = computed(() => navigation.filter((item) => auth.user && item.roles.includes(auth.user.role)))
+
+watch(() => router.currentRoute.value.path, () => { sidebarOpen.value = false })
 
 async function logout() {
   await auth.logout()
@@ -30,37 +33,43 @@ async function logout() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-brand-floor text-brand-navy">
-    <aside class="border-b border-white/10 bg-brand-navy text-white lg:fixed lg:inset-y-0 lg:left-0 lg:z-20 lg:w-64 lg:border-b-0 lg:border-r">
+  <main v-if="auth.user && !auth.user.installation_ready" class="min-h-screen bg-brand-floor p-4 text-brand-navy sm:p-6">
+    <RouterView />
+  </main>
+  <div v-else class="min-h-screen bg-brand-floor text-brand-navy" @keydown.esc="sidebarOpen = false">
+    <div v-if="sidebarOpen" class="fixed inset-0 z-30 bg-slate-950/50 lg:hidden" @click="sidebarOpen = false" />
+    <aside
+      id="app-sidebar"
+      class="invisible fixed inset-y-0 left-0 z-40 w-[min(18rem,85vw)] -translate-x-full bg-brand-navy text-white transition-transform duration-200 lg:visible lg:translate-x-0"
+      :class="sidebarOpen ? 'visible translate-x-0' : ''"
+    >
       <div class="flex h-full flex-col">
-        <div class="flex items-center justify-between px-5 py-4 lg:px-6 lg:py-7">
-          <RouterLink to="/dashboard" class="text-xl font-bold tracking-[-0.04em]">
-            Simply<span class="text-blue-300">Food</span>
+        <div class="flex items-center justify-between border-b border-white/10 px-5 py-5 lg:px-6 lg:py-7">
+          <RouterLink to="/dashboard" class="text-xl font-bold tracking-[-0.035em]" aria-label="SimplyCore, início">
+            Simply<span class="text-blue-300">Core</span>
           </RouterLink>
 
-          <div class="flex items-center gap-3 lg:hidden">
+          <div class="flex items-center gap-2 lg:hidden">
             <span class="max-w-28 truncate text-xs font-medium text-slate-300">{{ auth.user?.name }}</span>
-            <button class="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold hover:bg-white/10" @click="logout">
-              Sair
-            </button>
+            <button class="rounded-lg p-2 text-slate-300 hover:bg-white/10 hover:text-white" aria-label="Fechar navegação" @click="sidebarOpen = false">✕</button>
           </div>
         </div>
 
-        <nav class="flex gap-1 overflow-x-auto border-t border-white/10 px-3 py-2 lg:flex-1 lg:flex-col lg:overflow-visible lg:border-0 lg:px-4 lg:py-2">
+        <nav aria-label="Navegação principal" class="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-5 lg:px-4">
           <RouterLink
             v-for="item in visibleNavigation"
             :key="item.to"
             :to="item.to"
             class="nav-link"
             active-class="nav-link-active"
+            :aria-current="router.currentRoute.value.path === item.to ? 'page' : undefined"
           >
             {{ item.label }}
           </RouterLink>
         </nav>
 
-        <div class="hidden border-t border-white/10 p-5 lg:block">
+        <div class="border-t border-white/10 p-5">
           <p class="truncate text-sm font-semibold text-white">{{ auth.user?.name }}</p>
-          <p class="mt-1 text-xs font-medium text-slate-300">{{ auth.user?.role }}</p>
           <button class="mt-4 w-full rounded-lg border border-white/20 px-3 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white" @click="logout">
             Sair
           </button>
@@ -69,7 +78,12 @@ async function logout() {
     </aside>
 
     <main class="min-h-screen lg:pl-64">
-      <div class="mx-auto w-full max-w-[1600px] p-5 sm:p-7 lg:p-9 xl:p-10">
+      <div class="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
+        <button class="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 text-brand-navy hover:bg-slate-50" aria-label="Abrir navegação" aria-controls="app-sidebar" :aria-expanded="sidebarOpen" @click="sidebarOpen = true">☰</button>
+        <span class="text-base font-bold text-brand-navy">Simply<span class="text-brand-blue">Core</span></span>
+        <span class="ml-auto max-w-36 truncate text-xs text-slate-500">{{ auth.user?.name }}</span>
+      </div>
+      <div class="mx-auto w-full max-w-[1600px] p-4 sm:p-6 lg:p-8 xl:p-9">
         <RouterView />
       </div>
     </main>

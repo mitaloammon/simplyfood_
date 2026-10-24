@@ -19,8 +19,13 @@ Route::post('/auth/login', [AuthController::class, 'login'])->middleware('thrott
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/auth/logout', [AuthController::class, 'logout']);
-    Route::get('/auth/me', [AuthController::class, 'me']);
+});
 
+Route::middleware(['auth:sanctum', 'account.active'])->group(function () {
+    Route::get('/auth/me', [AuthController::class, 'me']);
+});
+
+Route::middleware(['auth:sanctum', 'account.active', 'installation.ready'])->group(function () {
     Route::middleware(['throttle:60,1', 'role:ADMIN,MANAGER,CASHIER,WAITER'])->group(function () {
         Route::get('/categories', [CategoryController::class, 'index']);
         Route::get('/products', [ProductController::class, 'index']);

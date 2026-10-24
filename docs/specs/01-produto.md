@@ -1,52 +1,30 @@
-# Produto
+# Product Scope and Roadmap
 
-## Objetivo e público
+## Product direction
 
-SimplyFood é um sistema de gestão operacional para um estabelecimento de food service. Atende a operação presencial de gestores, caixa e salão.
+SimplyCore is a modular, multi-tenant SaaS ERP platform designed to help small and medium-sized businesses manage operations through a shared application foundation and independently controlled business modules. This is the intended product direction, not a claim that every platform capability is implemented.
 
-O trabalho principal é atender mesas, registrar pedidos, receber pagamentos e operar o caixa com rapidez.
+The repository currently contains an operational application for `FOOD_SERVICE`. The original SimplyFood name remains in legacy code identifiers, SQL filenames, and historical artifacts.
 
-## Módulos do MVP
+## Current operational scope
 
-- Autenticação e contexto do estabelecimento
-- Clientes
-- Categorias e produtos
-- Mesas e comandas
-- Pedidos e itens
-- Caixa, movimentações e pagamentos
-- Dashboard operacional
-- Baixa de estoque no fechamento do pedido, quando houver ficha
+The inspected application includes authentication, categories and products, customers, tables and commands, orders, manual payments, cash shifts and movements, dashboard metrics, and ingredient deduction associated with qualifying order closure. See the [implementation inventory](../implementation/current-state.md) and [route inventory](04-api.md).
 
-Tabelas de cozinha, promoções, notificações e auditoria podem existir no schema futuro. Elas não entram em migration ou API do MVP.
+## Target platform constraints
 
-## Papéis
+- Shared-database logical multi-tenancy; one establishment represents one tenant.
+- `establishment_id` is the canonical tenant identifier candidate. Ordinary tenant switching is excluded from the approved model.
+- Each operational establishment has exactly one explicitly associated, valid, active principal manager. That identity must never be inferred from role or incidental data.
+- Establishment creation, claiming, approval, and operational release are distinct concerns.
+- Initial commercial profiles are exclusive `FOOD_SERVICE` and `RETAIL`. Commercial classification is independent from explicit module enablement.
+- `RETAIL` payments are reserved for the final planned implementation phase.
 
-| Papel | Responsabilidade |
-| --- | --- |
-| `ADMIN` | Dono ou gestor máximo do estabelecimento |
-| `MANAGER` | Operação, catálogo, usuários, exceto ADMIN, e caixa |
-| `CASHIER` | Caixa, pagamentos e pedidos |
-| `WAITER` | Mesas, comandas, pedidos e clientes |
-| `KITCHEN` | Papel reservado. Não há telas de cozinha no MVP. |
+These constraints are recorded in [the decision register](../decisions/README.md). Their implementation is incomplete or absent in the inspected source.
 
-A matriz de autorização pertence a [Regras](02-regras.md#matriz-de-permissões).
-Os papéis válidos são apenas os cinco acima. O papel `OPERATOR` não existe.
+## Roadmap status
 
+The existing [delivery notes](07-sprints.md) are historical records, not a commitment or proof of completion. RETAIL sales, inventory ledger, returns, refunds, RETAIL payments, platform administration, principal-manager workflows, and full provisioning/readiness remain unimplemented or unverified in the inspected code.
 
-## Fora do MVP
+## Out of current implementation scope
 
-- Cadastro público de usuário
-- WhatsApp
-- Gateway de pagamento
-- Delivery com geolocalização
-- KDS e telas de cozinha
-- Grupos de opções de produto e adicionais
-- Promoções
-- Módulo separado de receitas além de `product_ingredients`
-- Relatórios gerenciais avançados
-- Multi-estabelecimento por usuário
-- Super-admin de plataforma
-- Inertia
-- `order_type = DELIVERY`
-
-Realtime e Reverb podem ser avaliados depois. REST continua como fonte de verdade.
+No public user registration, delivery/geolocation, kitchen display system, payment gateway, platform super-admin workflow, or RETAIL checkout was found in the inspected API. Their future inclusion requires product and architecture decisions where not already approved.

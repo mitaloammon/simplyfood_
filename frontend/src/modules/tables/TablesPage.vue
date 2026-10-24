@@ -80,10 +80,12 @@ onMounted(load)
 
 <template>
   <section>
-    <div class="mb-7">
-      <p class="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-brand-blue">Salão</p>
-      <h1 class="page-title">Mesas e comandas</h1>
-      <p class="mt-2 text-sm text-slate-500">Veja a ocupação e mova o atendimento sem perder tempo.</p>
+    <div class="page-header">
+      <div>
+        <p class="page-eyebrow">Salão</p>
+        <h1 class="page-title">Mesas e comandas</h1>
+        <p class="page-description">Veja a ocupação e mova o atendimento sem perder tempo.</p>
+      </div>
     </div>
     <p v-if="error" class="mb-5 rounded-lg border border-red-100 bg-red-50 p-4 text-sm text-red-700">{{ error }}</p>
 

@@ -1,23 +1,15 @@
-# Ordem de leitura
+# Specification Index
 
-Este diretório compõe o contrato canônico do SimplyFood. [SPEC.md](../SPEC.md) é a porta de entrada.
+This specification describes the SimplyCore product direction and the repository's verified implementation. Approved decisions constrain future work; they do not imply that a feature exists.
 
-Cada regra tem um único arquivo responsável. Os demais arquivos apontam para ele.
+1. [Product scope and roadmap](01-produto.md)
+2. [Business rules and observed route authorization](02-regras.md)
+3. [Architecture, authentication, and readiness](03-arquitetura.md)
+4. [Registered API routes](04-api.md)
+5. [Frontend design reference](05-design-system.md)
+6. [Testing evidence and gaps](06-testes.md)
+7. [Historical delivery notes](07-sprints.md)
+8. [Design references](08-skills.md)
+9. [Workflow diagrams](diagrams/00-index.md)
 
-## Para pessoas
-
-1. [Produto](01-produto.md): público, escopo e papéis.
-2. [Regras](02-regras.md): permissões, tenant, operação e integridade de dados.
-3. [Arquitetura](03-arquitetura.md): stack, segurança e convenções técnicas.
-4. [API](04-api.md): contrato HTTP por módulo.
-5. [Design system](05-design-system.md): interface do PDV.
-6. [Testes](06-testes.md): critérios de aceite.
-7. [Sprints](07-sprints.md): histórico de implementação.
-8. [Skills](08-skills.md): ferramentas de apoio para trabalho visual e texto.
-9. [Fluxos de casos de uso](diagrams/00-index.md): sequências reais da API e da SPA.
-
-## Para agentes
-
-Leia `01` a `06` antes de alterar comportamento. Consulte `07` para contexto histórico e `08` antes de redesenhar a SPA.
-
-Em conflito com o código, registre **a verificar no código**. Não crie uma regra para preencher lacunas.
+The [decision register](../decisions/README.md) is authoritative for approval status. The [implementation inventory](../implementation/current-state.md) records static source evidence. The active database and runtime behavior have not been verified by this documentation.

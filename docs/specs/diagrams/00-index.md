@@ -1,14 +1,12 @@
-# Fluxos de casos de uso
+# Workflow Diagrams
 
-Diagramas de sequência conferidos em `backend/routes/api.php`, controllers e services.
+These diagrams describe the currently inspected FOOD_SERVICE request flows at a high level. They are explanatory documentation, not an independent source of API contracts. Confirm details against `backend/routes/api.php`, controllers, services, and SQL before relying on them.
 
-- [Autenticar usuário](auth-login.md)
-- [Consultar e cadastrar catálogo](catalog-products.md)
-- [Gerenciar clientes](customers.md)
-- [Operar turno de caixa](cash-shift.md)
-- [Gerenciar mesas e comandas](tables-commands.md)
-- [Criar pedido COUNTER](orders-counter.md)
-- [Registrar pagamento](payments.md)
-- [Consultar métricas do dashboard](dashboard-metrics.md)
-
-Todas as rotas de negócio usam o `establishment_id` do usuário autenticado. Recursos de outro tenant não são retornados.
+- [Authentication, session, and logout](auth-login.md)
+- [Catalog](catalog-products.md)
+- [Customers](customers.md)
+- [Cash shift](cash-shift.md)
+- [Tables and commands](tables-commands.md)
+- [Counter order](orders-counter.md)
+- [Payments](payments.md)
+- [Dashboard metrics](dashboard-metrics.md)
