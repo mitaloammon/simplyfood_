@@ -21,6 +21,11 @@ export const router = createRouter({
       children: [
         { path: '', redirect: '/dashboard' },
         {
+          path: 'configuration-pending',
+          name: 'configuration-pending',
+          component: () => import('../modules/auth/ConfigurationPendingPage.vue'),
+        },
+        {
           path: 'dashboard',
           name: 'dashboard',
           component: () => import('../modules/dashboard/DashboardPage.vue'),
@@ -71,6 +76,12 @@ router.beforeEach((to) => {
   }
 
   if (to.meta.public && authenticated) return { name: 'dashboard' }
+
+  if (authenticated && auth.user && !auth.user.installation_ready) {
+    if (to.name !== 'configuration-pending') return { name: 'configuration-pending' }
+  } else if (to.name === 'configuration-pending') {
+    return { name: 'dashboard' }
+  }
 
   const roles = to.meta.roles as Role[] | undefined
   if (roles && auth.user && !roles.includes(auth.user.role)) return { name: 'dashboard' }

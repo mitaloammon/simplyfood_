@@ -1,27 +1,7 @@
-# Testes e aceite
+# Testing and Acceptance Evidence
 
-## Ambiente de aceite
+See [Testing and Verification](../development/testing.md) for observed test configuration, coverage gaps, and safe execution guidance.
 
-O schema canônico usa MySQL 8.4 e inclui `ENUM`, `CHECK` e triggers. O aceite funcional ocorre por curl contra a API no Compose.
+The repository contains a small set of backend feature tests and declares Vitest for the frontend. The active database was not inspected, tests were not run, and compatibility between SQLite test configuration and the MySQL-oriented schema/triggers is unverified. Historical acceptance targets such as a coverage percentage are not treated as approved release gates unless separately confirmed.
 
-Pest com SQLite em memória não é critério de aceite. A incompatibilidade de `ENUM` e `CHECK` não autoriza reescrever o schema MySQL.
-
-`migrate:fresh` apaga os dados. Use apenas em instalação ou reset intencional. Não faz parte do smoke em uma base validada.
-
-## Smoke mínimo
-
-1. `GET /api/health`.
-2. `POST /api/auth/login` e obtenha o Bearer token.
-3. `POST /api/cash/open`.
-4. `POST /api/orders` com `order_type: COUNTER`.
-5. `POST /api/orders/{id}/payments` com `payment_method` e `amount`.
-
-Pedido sem turno de caixa `OPEN` deve falhar. Pagamento total deve permitir o fechamento conforme [Regras](02-regras.md#regras-de-negócio).
-
-## Suíte automatizada
-
-- Pest no backend.
-- Vitest no frontend.
-- Cobertura mínima de 80% em Application e Domain.
-- Todo endpoint do MVP deve testar autorização por papel e isolamento por `establishment_id`.
-- As regras de turno único, turno aberto para pedido, pagamento total, fechamento de caixa e baixa de estoque exigem teste.
+Release criteria must cover tenant isolation, role checks, authentication and account state, shared readiness, FOOD_SERVICE order/payment/cash/ingredient regressions, concurrent updates, and migration recovery in an isolated environment. RETAIL requires separate acceptance contracts before release.

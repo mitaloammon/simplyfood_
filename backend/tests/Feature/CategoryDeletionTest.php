@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Category;
+use App\Models\Establishment;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -11,6 +12,12 @@ uses(RefreshDatabase::class);
 
 function catalogUser(string $establishmentId): User
 {
+    Establishment::query()->create([
+        'id' => $establishmentId,
+        'name' => 'Estabelecimento de teste',
+        'status' => 'ACTIVE',
+    ]);
+
     return User::query()->create([
         'id' => (string) Str::uuid(),
         'establishment_id' => $establishmentId,

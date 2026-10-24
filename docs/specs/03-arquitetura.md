@@ -1,74 +1,48 @@
-# Arquitetura
+# Architecture, Authentication, and Readiness
 
-## Stack e ambiente
+## Product and implementation boundary
 
-- Backend: PHP 8.2+ e Laravel 12.
-- Banco canônico: MySQL 8.4.
-- Cache e filas: Redis.
-- Frontend: Vue 3, TypeScript, Pinia, Vue Router e Tailwind.
-- Execução local: Docker Compose no WSL 2.
-- SPA em desenvolvimento: Vite, normalmente em `:5173`.
-- API: Nginx, normalmente em `:8080`.
+SimplyCore is the intended modular, multi-tenant ERP platform. The repository currently implements a FOOD_SERVICE application, not the complete target platform. The [decision register](../decisions/README.md) records approved constraints and pending proposals; the [implementation inventory](../implementation/current-state.md) records observed source behavior.
 
-O projeto vive no filesystem Linux do WSL. O Compose orquestra a aplicação, mas a SPA pode rodar pelo Vite no Ubuntu.
+## Technology observed in repository declarations
 
-## Decisões técnicas
+- Backend manifests declare PHP `^8.2`, Laravel `^12.0`, and Sanctum `^4.0`.
+- Frontend manifests declare Vue 3, TypeScript, Pinia, Vue Router, Vite, and Vitest.
+- Docker Compose declares MySQL 8.4, Redis 7, and Node 20.
+- The working tree contains a pre-existing uncommitted PHP Dockerfile change specifying PHP 8.4. The intended image/runtime baseline is therefore not established by this documentation.
 
-| Tema | Contrato |
-| --- | --- |
-| Identificadores | UUID v4 |
-| Tenant | `establishment_id`; a regra pertence a [Regras](02-regras.md#tenant) |
-| Interface | Uma SPA Vue. Sem Inertia no MVP. |
-| Realtime | Opcional. REST é a fonte de verdade. |
-| Exclusão | Soft delete conforme [Regras](02-regras.md#regras-de-negócio) |
-| Idioma da API | Mensagens JSON em português e campos em inglês com `snake_case` |
+These declarations do not establish deployment configuration or the identity/schema of any active database.
 
-Services HTTP ficam isolados. Páginas não concentram regra de negócio. Um módulo de frontend representa cada feature do MVP.
+## Multi-tenancy
 
-Nomes canônicos de dados: `tables`, `cash_register_shifts` e `cash_movements`. Não use `restaurant_tables`, `cash_closings` ou `cash_transactions`.
+**Approved direction (DEC-01):** shared-database logical isolation, exactly one establishment per tenant, with `establishment_id` as the canonical tenant identifier candidate and no ordinary tenant switching. A generic `tenants` table or parallel `tenant_id` is not part of the approved direction absent an explicitly approved architectural deviation.
 
-## Autenticação e autorização
+**Observed implementation:** users and operational data use establishment identifiers in the inspected code and versioned SQL. Comprehensive isolation, relational enforcement, and the active database state have not been proven. See [integrity review](../backend/integrity.md).
 
-Laravel Sanctum emite Bearer token.
+## Authentication and authorization
 
-Na SPA, o token existe somente em memória durante a sessão da aba. É proibido persistir o token em `localStorage` ou `sessionStorage`. Atualizar a página encerra a sessão local.
+The inspected API authenticates bearer tokens with Laravel Sanctum. Login checks account status and password before issuing a token. The `account.active` middleware is registered and applied to `/auth/me` and the commercial route group. `installation.ready` is then applied to the commercial group, followed by rate limiting and role allowlists. Actual route groups are listed in [API routes](04-api.md).
 
-Rotas privadas usam `auth:sanctum`. O middleware `role` restringe papéis por grupo. As permissões pertencem a [Regras](02-regras.md#matriz-de-permissões).
+`EnsureAccountActive` blocks protected requests for an inactive account. It does not revoke every token. Logout is authenticated but is outside the account/readiness guards; the controller attempts to delete only `currentAccessToken()`. Whether a prior token can be reused after account reactivation depends on token validity and revocation state. Global revocation and session invalidation are not implemented by the inspected code.
 
-O login usa `throttle:login`, com alvo de 5 requisições por minuto por IP e e-mail. Grupos autenticados usam `throttle:60,1`.
+The frontend token helper stores the bearer token in module memory and removes a legacy `localStorage.token` during startup. Static inspection does not establish browser/runtime security behavior.
 
-A senha usa bcrypt ou Argon pelo Laravel. CORS aceita apenas a origem da SPA.
+## Establishment readiness
 
-## Envelope HTTP
+**Approved DEC-06.1.1:** blocking and diagnostic consumers must use one shared readiness evaluation, distinct from authorization to perform an action.
 
-Sucesso:
+**Observed source:** `EnsureInstallationReady` checks that the authenticated user has an establishment whose status is `ACTIVE`. `AuthController::userData` independently calculates `installation_ready` with a similar query. These checks are duplicated and limited; they do not evaluate establishment approval, explicit principal-manager association, commercial profile, module entitlement, or provisioning conflicts. The approved shared evaluation is therefore not fully implemented.
 
-```json
-{
-  "status": "success",
-  "data": {},
-  "message": "string"
-}
-```
+## Principal manager, profiles, modules, and provisioning
 
-Erro:
+DEC-02 through DEC-05 require explicit principal association, approved establishment lifecycle and provisioning, exclusive commercial classification, independent module enablement, and controlled fail-closed legacy migration. The inspected application schema and routes do not implement these full workflows. RETAIL payments remain deferred to the final planned phase.
 
-```json
-{
-  "status": "error",
-  "message": "string",
-  "errors": {}
-}
-```
+## Pending readiness/workflow decisions
 
-Clientes enviam `Accept: application/json`. Rotas privadas também enviam `Authorization: Bearer {token}`.
+DEC-06.1.2 and DEC-06.2 remain pending. Proposed readiness layers, workflow state machines, audit policy, authority, evidence rules, partial-failure behavior, and recovery must not be treated as approved implementation contracts.
 
-## Requisitos não funcionais
+There is an unresolved specification conflict: the older architecture document described detailed audit as outside the MVP, while approved DEC-02, DEC-03, and DEC-05 require critical associations, provisioning, transfers, and migration decisions to be auditable. The scope and minimum audit guarantees require explicit reconciliation; this document does not resolve the conflict.
 
-- Paginação por cursor ou página: padrão 20, máximo 100.
-- Tempo alvo da API: p95 menor que 300 ms em listagens simples.
-- Índices em `establishment_id`, status, datas e chaves estrangeiras.
-- Filas Redis para jobs, como estoque e e-mail futuro.
-- Logs de aplicação. Auditoria detalhada fica fora do MVP.
-- Health check público sem dados internos.
-- Sem dependência de realtime no MVP. O dashboard pode usar polling de 30 segundos.
+## HTTP envelope and operational assumptions
+
+Routes return JSON in the inspected controllers, but there is no evidence here that every endpoint follows one uniform envelope. Rate limits and authentication middleware should be read from route declarations. Pagination, latency targets, CORS policy, password hashing algorithm, queue behavior, and realtime guarantees are not asserted unless verified in code/configuration. REST is the current API shape; no realtime dependency is documented as implemented.

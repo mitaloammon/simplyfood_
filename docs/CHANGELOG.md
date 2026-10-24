@@ -1,25 +1,24 @@
 # Changelog
 
-Este arquivo registra ajustes feitos após a conclusão das etapas 1–10. Os contratos canônicos continuam definidos em [SPEC.md](SPEC.md).
+This file preserves selected historical project notes. It is not a complete release history. Current contracts are in [SPEC.md](SPEC.md), and approval status is in the [decision register](decisions/README.md).
 
-## 2026-08-28 — Ajustes posteriores às etapas 1–10
+## 2026-08-28 — Historical updates after the initial delivery sequence
 
-### Autenticação
+### Authentication and frontend session handling
 
-- O Bearer token do Sanctum passou a existir somente em memória no frontend.
-- A persistência do token em `localStorage` e `sessionStorage` foi proibida.
-- A inicialização da SPA remove apenas o token legado salvo anteriormente.
+- The SPA bearer token was changed to in-memory storage.
+- Startup removes a legacy token stored in `localStorage`.
+- This frontend behavior does not imply global server-side token revocation.
 
 ### Interface
 
-- O login passou a usar layout responsivo em duas colunas, com atmosfera visual à esquerda e formulário à direita.
-- Inter foi definida como fonte global do frontend.
-- O chip “Gestão para restaurantes” e os cards `01`, `100%` e `MVP` foram removidos do login.
-- O app shell e as telas operacionais receberam tokens visuais compartilhados, navegação responsiva e ações curtas para o PDV.
-- O contraste global foi reforçado: texto principal `#1c1917`, labels e cabeçalhos `#44403c`, peso mínimo 500 e placeholders mais claros.
-- A suavização `antialiased` e transforms que poderiam reduzir a nitidez foram removidos das superfícies operacionais.
+- The login layout and operational shell received visual updates.
+- Inter was recorded as the global frontend font.
+- Shared visual tokens, responsive navigation, concise operational actions, and stronger text contrast were recorded.
 
-### Pagamentos
+### Payments
 
-- `payment_method` foi consolidado como o campo canônico para registrar a forma de pagamento.
-- O método `CASH` foi validado em pagamentos parciais e totais.
+- `payment_method` was consolidated as the payment-method field.
+- `CASH` was recorded as supported for partial and full payments.
+
+These are historical notes and should be rechecked against current source before being used as implementation guarantees. SimplyFood is the legacy product name and remains in technical identifiers and historical records; SimplyCore is the current documentation name.

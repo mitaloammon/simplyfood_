@@ -6,6 +6,7 @@ export interface User {
   email: string
   role: Role
   establishment_id: string
+  installation_ready: boolean
 }
 
 export interface ApiEnvelope<T> {

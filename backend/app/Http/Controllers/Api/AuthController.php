@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Application\Readiness\EstablishmentReadiness;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -10,6 +11,10 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly EstablishmentReadiness $readiness)
+    {
+    }
+
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -61,10 +66,15 @@ class AuthController extends Controller
     }
 
     /**
-     * @return array{id: string, name: string, email: string, role: string, establishment_id: string}
+     * @return array{id: string, name: string, email: string, role: string, establishment_id: string, installation_ready: bool}
      */
     private function userData(User $user): array
     {
-        return $user->only(['id', 'name', 'email', 'role', 'establishment_id']);
+        return array_merge(
+            $user->only(['id', 'name', 'email', 'role', 'establishment_id']),
+            [
+                'installation_ready' => $this->readiness->isReady($user),
+            ],
+        );
     }
 }

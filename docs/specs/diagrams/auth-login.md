@@ -1,57 +1,27 @@
-# Autenticar usuário
+# Authentication, Session, and Logout
 
-## Ator e papéis permitidos / 403
-
-Login: usuário com cadastro `ACTIVE`, sem Bearer prévio. `me` e logout: `ADMIN`, `MANAGER`, `CASHIER`, `WAITER` e `KITCHEN` autenticados. Estas rotas não aplicam middleware de papel; não há 403 por papel.
-
-## Pré-condições
-
-- Login recebe `email` e `password`.
-- `me` e logout recebem `Authorization: Bearer {token}`.
-- A SPA mantém o token Sanctum somente em memória. `localStorage` e `sessionStorage` são proibidos; recarregar a página encerra a sessão local.
-
-## Rotas canônicas
-
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `POST /api/auth/logout`
-
-## Sequência
+This diagram summarizes the controller and route declarations inspected in source. It is not runtime verification.
 
 ```mermaid
 sequenceDiagram
-    actor U as Usuário
+    actor User
     participant SPA
-    participant R as Rota auth
-    participant C as AuthController
-    participant DB as MySQL
-    U->>SPA: Informa email e password
-    SPA->>R: POST /api/auth/login
-    R->>C: login(request)
-    C->>DB: Busca user por email e valida status/password
-    DB-->>C: user
-    C->>DB: Cria token Sanctum "spa"
-    DB-->>C: plainTextToken
-    C-->>SPA: envelope JSON com token, token_type e user
-    Note over SPA: Token mantido somente em memória
-    SPA->>R: GET /api/auth/me + Bearer
-    R->>C: me(request)
-    C-->>SPA: envelope JSON com user
-    SPA->>R: POST /api/auth/logout + Bearer
-    R->>C: logout(request)
-    C->>DB: Exclui currentAccessToken
-    DB-->>C: concluído
-    C-->>SPA: envelope JSON, data null
+    participant API as Laravel API
+    participant Auth as AuthController
+    participant Store as Token storage
+    User->>SPA: Submit credentials
+    SPA->>API: POST /auth/login
+    API->>Auth: Validate request
+    Auth->>Store: Check user and create Sanctum token
+    Store-->>Auth: Token result
+    Auth-->>SPA: Token and user data or error
+    SPA->>API: GET /auth/me with bearer token
+    API->>Auth: Authenticate, check account.active
+    Auth-->>SPA: Current user data
+    SPA->>API: POST /auth/logout with bearer token
+    API->>Auth: Authenticate token
+    Auth->>Store: Attempt to delete current access token
+    Auth-->>SPA: Success response
 ```
 
-`AuthController` executa este fluxo diretamente; não existe Service de autenticação.
-
-## Pós-condição
-
-No login, um token Sanctum é criado e fica em memória na SPA. No logout, o token atual é revogado e removido da memória.
-
-## Erros existentes
-
-- 401: credenciais inválidas, usuário inativo ou Bearer ausente/inválido nas rotas autenticadas.
-- 422: `email` ou `password` ausente/inválido.
-- 403 e 409: não são produzidos pelas regras deste caso de uso.
+`/auth/me` has `auth:sanctum` and `account.active`. Logout has `auth:sanctum` only. The controller deletes the current token when the authentication context supports it; global token revocation is not implemented by this flow. The frontend keeps the token in module memory according to the inspected helper.

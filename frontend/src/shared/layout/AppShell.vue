@@ -33,7 +33,10 @@ async function logout() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-brand-floor text-brand-navy" @keydown.esc="sidebarOpen = false">
+  <main v-if="auth.user && !auth.user.installation_ready" class="min-h-screen bg-brand-floor p-4 text-brand-navy sm:p-6">
+    <RouterView />
+  </main>
+  <div v-else class="min-h-screen bg-brand-floor text-brand-navy" @keydown.esc="sidebarOpen = false">
     <div v-if="sidebarOpen" class="fixed inset-0 z-30 bg-slate-950/50 lg:hidden" @click="sidebarOpen = false" />
     <aside
       id="app-sidebar"
@@ -67,7 +70,6 @@ async function logout() {
 
         <div class="border-t border-white/10 p-5">
           <p class="truncate text-sm font-semibold text-white">{{ auth.user?.name }}</p>
-          <p class="mt-1 text-xs font-medium text-slate-300">{{ auth.user?.role }}</p>
           <button class="mt-4 w-full rounded-lg border border-white/20 px-3 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-white/10 hover:text-white" @click="logout">
             Sair
           </button>

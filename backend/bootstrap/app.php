@@ -1,6 +1,8 @@
 <?php
 
 use App\Exceptions\BusinessConflictException;
+use App\Http\Middleware\EnsureAccountActive;
+use App\Http\Middleware\EnsureInstallationReady;
 use App\Http\Middleware\EnsureRole;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -19,6 +21,8 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
+            'account.active' => EnsureAccountActive::class,
+            'installation.ready' => EnsureInstallationReady::class,
             'role' => EnsureRole::class,
         ]);
     })

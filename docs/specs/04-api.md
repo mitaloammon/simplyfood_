@@ -1,204 +1,51 @@
-# API
+# Registered API Routes
 
-Base: `/api`.
+This inventory is derived from `backend/routes/api.php`. It records route declarations and middleware, not full request/response schemas or runtime results. The API base path is `/api` as configured by the Laravel application; active deployment routing has not been verified.
 
-O envelope, os headers e os middlewares pertencem a [Arquitetura](03-arquitetura.md#envelope-http). As permissões pertencem a [Regras](02-regras.md#matriz-de-permissões).
+## Middleware groups
 
-As rotas abaixo foram conferidas em `backend/routes/api.php`.
+- `GET /health`: public.
+- `POST /auth/login`: public, `throttle:login`.
+- `POST /auth/logout`: `auth:sanctum` only.
+- `GET /auth/me`: `auth:sanctum`, `account.active`.
+- Commercial routes: `auth:sanctum`, `account.active`, `installation.ready`, then route-specific `throttle:60,1` and `role` allowlist.
 
-## Diagramas de sequência
+`account.active` and `installation.ready` are registered middleware aliases. See [architecture and readiness](03-arquitetura.md#authentication-and-authorization). The precise order is the order declared in the nested route groups, subject to Laravel middleware resolution; runtime ordering has not been exercised here.
 
-- [Auth: login, sessão e logout](diagrams/auth-login.md)
-- [Catálogo: categorias e produtos](diagrams/catalog-products.md)
-- [Clientes](diagrams/customers.md)
-- [Turno de caixa](diagrams/cash-shift.md)
-- [Mesas e comandas](diagrams/tables-commands.md)
-- [Pedido COUNTER](diagrams/orders-counter.md)
-- [Pagamentos](diagrams/payments.md)
-- [Métricas do dashboard](diagrams/dashboard-metrics.md)
+## Routes by capability allowlist
 
-## Auth e health
+### ADMIN, MANAGER, CASHIER, WAITER
 
-### `GET /api/health`
+- Categories: `GET /categories`
+- Products: `GET /products`, `GET /products/{product}`
+- Customers: `GET /customers`, `GET /customers/{customer}`
+- Tables: `GET /tables`
+- Commands: `GET /commands`
+- Dashboard: `GET /dashboard/metrics`
+- Orders: `GET /orders`, `POST /orders`, `GET /orders/{order}`, `POST /orders/{order}/items`, `PATCH /orders/{order}/status`, `DELETE /orders/{order}/items/{item}`
 
-Resposta 200:
+### ADMIN, MANAGER
 
-```json
-{
-  "status": "success",
-  "data": { "ok": true },
-  "message": "OK"
-}
-```
+- Categories: `POST /categories`, `PATCH /categories/{category}`, `DELETE /categories/{category}`
+- Products: `POST /products`, `PATCH /products/{product}`, `DELETE /products/{product}`
 
-### `POST /api/auth/login`
+### ADMIN, MANAGER, WAITER
 
-```json
-{ "email": "admin@simplyfood.test", "password": "********" }
-```
+- Customers: `POST /customers`, `PATCH /customers/{customer}`, `DELETE /customers/{customer}`
+- Tables: `POST /tables`, `PATCH /tables/{table}`, `PATCH /tables/{table}/status`
+- Commands: `POST /commands`, `PATCH /commands/{command}/status`
 
-200:
+### ADMIN, MANAGER, CASHIER
 
-```json
-{
-  "status": "success",
-  "data": {
-    "token": "1|...",
-    "token_type": "Bearer",
-    "user": {
-      "id": "uuid",
-      "name": "Administrador",
-      "email": "admin@simplyfood.test",
-      "role": "ADMIN",
-      "establishment_id": "uuid"
-    }
-  },
-  "message": "Login realizado com sucesso"
-}
-```
+- Cash: `POST /cash/open`, `GET /cash/current`, `POST /cash/movements`, `GET /cash/history`, `POST /cash/close`
+- Payments: `POST /orders/{order}/payments`
 
-401 se credencial inválida.
+`KITCHEN` is present in the role middleware allowlist but is not included in these commercial route groups. No user management or inventory-management API route is declared in this file.
 
-## Rotas autenticadas
+## Authentication behavior observed in controller
 
-`POST /api/auth/logout` → 200  
-`GET /api/auth/me` → usuário atual
+Login validates email/password, requires an `ACTIVE` user, and issues a Sanctum token. `/auth/me` returns user data and a separately computed `installation_ready` boolean. Logout attempts to delete only the current access token. These static facts do not establish token expiration configuration or global revocation.
 
-### Clientes
+## Contract gaps
 
-`GET /api/customers` query: `q`, `page`  
-`POST /api/customers` — **autenticado** (não público)
-
-```json
-{
-  "name": "Maria Silva",
-  "phone": "11999999999",
-  "email": "maria@email.com",
-  "document": "12345678900",
-  "address": "Rua A, 10"
-}
-```
-
-`GET /api/customers/{id}`  
-`PATCH /api/customers/{id}`  
-`DELETE /api/customers/{id}` soft delete
-
-### Produtos e categorias
-
-`GET|POST /api/categories`  
-`PATCH|DELETE /api/categories/{id}`
-
-`GET /api/products` query: `category_id`, `is_available`, `q`  
-`POST /api/products`
-
-```json
-{
-  "category_id": "uuid",
-  "name": "X-Burger",
-  "description": "Pão, carne, queijo",
-  "price": 28.90,
-  "cost_price": 12.00,
-  "sku": "XB-01",
-  "is_available": true,
-  "preparation_time_minutes": 12
-}
-```
-
-`GET|PATCH|DELETE /api/products/{id}`
-
-### Mesas
-
-`GET /api/tables`  
-`POST /api/tables` `{ "number": 1, "capacity": 4 }`  
-`PATCH /api/tables/{id}`  
-`PATCH /api/tables/{id}/status` `{ "status": "FREE|OCCUPIED|RESERVED|BILLING" }`
-
-### Comandas
-
-`GET /api/commands`  
-`POST /api/commands` `{ "code": "A-12", "table_id": "uuid" }`  
-`PATCH /api/commands/{id}/status` `{ "status": "OPEN|CLOSED|BLOCKED" }`
-
-Status persistido: `FREE`, `OPEN`, `BLOCKED`, `CLOSED`.
-
-### Pedidos
-
-`GET /api/orders` query: `status`, `table_id`, `command_id`  
-`POST /api/orders`
-
-```json
-{
-  "order_type": "TABLE",
-  "table_id": "uuid",
-  "command_id": null,
-  "customer_id": null,
-  "items": [
-    { "product_id": "uuid", "quantity": 2, "notes": "sem cebola" }
-  ]
-}
-```
-
-`GET /api/orders/{id}`  
-`POST /api/orders/{id}/items`  
-`PATCH /api/orders/{id}/status` `{ "status": "IN_PREPARATION" }`  
-`DELETE /api/orders/{id}/items/{itemId}` somente se pedido `OPEN`
-
-### Caixa
-
-`GET /api/cash/current`  
-`POST /api/cash/open` `{ "cash_register_id": "uuid", "opening_balance": 150.00 }`  
-`POST /api/cash/movements` `{ "type": "BLEED|SUPPLEMENT", "amount": 50.00, "description": "sangria" }`  
-`GET /api/cash/history`  
-`POST /api/cash/close` `{ "closing_balance": 430.00, "notes": "" }`
-
-### Pagamentos
-
-`POST /api/orders/{id}/payments`
-
-```json
-{
-  "payment_method": "CASH|CREDIT_CARD|DEBIT_CARD|PIX|VOUCHER",
-  "amount": 57.80
-}
-```
-
-### Dashboard
-
-`GET /api/dashboard/metrics`
-
-```json
-{
-  "status": "success",
-  "data": {
-    "open_orders": 4,
-    "occupied_tables": 6,
-    "today_revenue": 1520.40,
-    "open_shift": true
-  },
-  "message": "OK"
-}
-```
-
-
-## A verificar no código
-
-As rotas de estoque abaixo estavam no SPEC anterior, mas não estão registradas em `backend/routes/api.php`: **a verificar no código**.
-
-A matriz anterior também prevê CRUD de usuários por ADMIN e MANAGER, mas nenhuma rota de usuários está registrada: **a verificar no código**.
-
-
-`GET /api/inventory-items`  
-`POST /api/inventory-items`  
-`PUT /api/products/{id}/ingredients` — substitui a ficha
-
-```json
-{
-  "items": [
-    { "inventory_item_id": "uuid", "quantity": 0.180, "unit": "kg" }
-  ]
-}
-```
-
-## Status HTTP
-
-- 200, 201, 400, 401, 403, 404, 409 (conflito de caixa/mesa), 422, 429, 500
+The route file alone does not define all validation, response schemas, transaction boundaries, or tenant guarantees. Consult Form Requests, controllers, application services, models, and SQL triggers before relying on operation semantics. There are no registered routes here for RETAIL sales, returns, refunds, stock ledger operations, or gateway payments.
