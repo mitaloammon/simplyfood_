@@ -12,11 +12,12 @@ uses(RefreshDatabase::class);
 
 function catalogUser(string $establishmentId): User
 {
-    Establishment::query()->create([
+    $establishment = Establishment::query()->forceCreate([
         'id' => $establishmentId,
         'name' => 'Estabelecimento de teste',
         'status' => 'ACTIVE',
     ]);
+    $establishmentId = $establishment->id;
 
     return User::query()->create([
         'id' => (string) Str::uuid(),
